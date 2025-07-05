@@ -65,6 +65,7 @@ router.post('/', jwtAuthen, async (req: AuthenticatedRequest, res) => {
       const floorId = (floorResult as any).insertId;
 
       for (let j = 1; j <= rooms_per_floor; j++) {
+        //ตั้งชื่อห้องเป็น Fชั้น-Rห้อง (เช่น F2-R3)
         const roomNumber = `F${i}-R${j}`;
         await conn.execute(
           'INSERT INTO rooms (floor_id, room_number, room_type, room_rate) VALUES (?, ?, ?, ?)',
