@@ -13,6 +13,15 @@ export const router = express.Router();
 //   };
 // }
 
+function generateJoinCode(length = 8) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
 router.post('/', jwtAuthen, async (req: AuthenticatedRequest, res) => {
   try {
     const user = req.auth;
@@ -38,6 +47,8 @@ router.post('/', jwtAuthen, async (req: AuthenticatedRequest, res) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
+
+
     // ยืนยันว่าผู้ใช้มีอยู่ในฐานข้อมูล
     const [users] = await conn.query<RowDataPacket[]>(
       'SELECT * FROM users WHERE id = ? AND account_type = "owner"',
@@ -47,14 +58,30 @@ router.post('/', jwtAuthen, async (req: AuthenticatedRequest, res) => {
       return res.status(403).json({ message: 'Owner not found' });
     }
 
-    // สร้างหอพัก
+    // สร้าง join_code ที่ unique
+    let joinCode = generateJoinCode();
+    let isDuplicate = true;
+    while (isDuplicate) {
+      const [rows] = await conn.query<RowDataPacket[]>(
+        'SELECT id FROM dormitories WHERE join_code = ?',
+        [joinCode]
+      );
+      if (rows.length === 0) {
+        isDuplicate = false;
+      } else {
+        joinCode = generateJoinCode();
+      }
+    }
+
+    // สร้างหอพักพร้อม join_code
     const [result] = await conn.execute(
       `INSERT INTO dormitories 
-        (owner_id, name, phone, address, bill_generation_day, bill_due_date, billing_type)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [ownerId, name, phone, address, bill_generation_day, bill_due_date, billing_type]
+    (owner_id, name, phone, address, bill_generation_day, bill_due_date, billing_type, join_code)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [ownerId, name, phone, address, bill_generation_day, bill_due_date, billing_type, joinCode]
     );
     const dormitoryId = (result as any).insertId;
+
 
     // สร้างชั้นและห้อง (ถ้ามี)
     for (let i = 1; i <= number_of_floors; i++) {
@@ -76,7 +103,8 @@ router.post('/', jwtAuthen, async (req: AuthenticatedRequest, res) => {
 
     res.status(200).json({
       message: 'Dormitory created successfully',
-      dormitory_id: dormitoryId
+      dormitory_id: dormitoryId,
+      join_code: joinCode,  // ส่ง join_code กลับไปให้เจ้าของหอ
     });
 
   } catch (err) {
