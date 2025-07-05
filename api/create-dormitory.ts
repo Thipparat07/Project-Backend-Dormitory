@@ -39,6 +39,7 @@ router.post('/', jwtAuthen, async (req: AuthenticatedRequest, res) => {
       bill_generation_day,
       bill_due_date,
       billing_type,
+      bill_delivery_mode,
       number_of_floors = 0,
       rooms_per_floor = 0,
     } = req.body;
@@ -76,9 +77,9 @@ router.post('/', jwtAuthen, async (req: AuthenticatedRequest, res) => {
     // สร้างหอพักพร้อม join_code
     const [result] = await conn.execute(
       `INSERT INTO dormitories 
-    (owner_id, name, phone, address, bill_generation_day, bill_due_date, billing_type, join_code)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [ownerId, name, phone, address, bill_generation_day, bill_due_date, billing_type, joinCode]
+    (owner_id, name, phone, address, bill_generation_day, bill_due_date, billing_type, bill_delivery_mode, join_code)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [ownerId, name, phone, address, bill_generation_day, bill_due_date, billing_type, bill_delivery_mode, joinCode]
     );
     const dormitoryId = (result as any).insertId;
 
