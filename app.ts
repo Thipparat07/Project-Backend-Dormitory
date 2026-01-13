@@ -6,6 +6,7 @@ import { router as index } from "./api/index";
 import { router as authlocal } from "./api/auth-local";
 import { router as authRoutes } from "./auth/authRoutes";
 import { router as createdormitory } from "./api/create-dormitory";
+import { router as addBankRouter } from './api/add-bank';
 
 export const app = express();
 
@@ -16,7 +17,8 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: "*",
+    // origin: process.env.CORS_ORIGIN,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -29,6 +31,8 @@ app.use("/authlocal", authlocal);
 app.use(jwtAuthen); // middleware ตรวจสอบ JWT
 
 app.use("/createdormitory", createdormitory);
+app.use('/banks', addBankRouter);
+
 
 app.use(jwtAuthen, (err: any, req: any, res: any, next: any) => {
   if (err.name === "UnauthorizedError") {
@@ -40,8 +44,8 @@ app.use(jwtAuthen, (err: any, req: any, res: any, next: any) => {
 
 // Test Token
 app.use("/testtoken", (req, res) => {
-    const payload: any = { username: "Aj.M" }; 
-    const jwttoken = generateToken(payload, secret);
+  const payload: any = { username: "Aj.M" };
+  const jwttoken = generateToken(payload, secret);
   res.status(200).json({
     token: jwttoken,
   });

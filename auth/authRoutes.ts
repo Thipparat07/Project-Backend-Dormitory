@@ -23,13 +23,13 @@ router.get("/google/callback", (req, res, next) => {
                 email: user.email,
                 role: user.account_type,
             }, secret);
-            return res.redirect(`http://localhost:4200/login?token=${accessToken}`);
+            return res.redirect(`http://frontend.dormmy.online/login?token=${accessToken}`);
         } else if (info && info.message === 'need-select-role') {
             // ยังไม่มี user ต้องไปหน้าเลือก role พร้อม token ชั่วคราว
-            return res.redirect(`http://localhost:4200/select-role?token=${info.token}`);
+            return res.redirect(`http://frontend.dormmy.online/select-role?token=${info.token}`);
         } else if (info && info.message === 'email-exists') {
             // email นี้มีอยู่แล้ว → ขอผู้ใช้ยืนยันก่อน
-            return res.redirect(`http://localhost:4200/confirm-link?token=${info.token}`);
+            return res.redirect(`http://frontend.dormmy.online/confirm-link?token=${info.token}`);
         } else {
             return res.redirect('/login?error=unauthorized');
         }
@@ -62,8 +62,8 @@ router.post('/google/complete-registration', async (req, res) => {
         if ((rowsByEmail as any).length > 0) {
             // มี email นี้แล้ว → ให้ผูก google_id กับบัญชีเดิมแทน
             await conn.execute(
-                'UPDATE users SET google_id = ?, profile_picture = ? WHERE email = ?',
-                [google_id, photo, email]
+                'UPDATE users SET google_id = ?, full_name = ?, profile_picture = ? WHERE email = ?',
+                [google_id, name, photo, email]
             );
 
             const existingUser = (rowsByEmail as any)[0];
@@ -118,8 +118,8 @@ router.post('/google/link-confirm', async (req, res) => {
         }
 
         await conn.execute(
-            'UPDATE users SET google_id = ?, profile_picture = ? WHERE email = ?',
-            [google_id, photo, email]
+            'UPDATE users SET google_id = ?, full_name = ?, profile_picture = ? WHERE email = ?',
+            [google_id, name, photo, email]
         );
 
         const user = (rows as any)[0];
