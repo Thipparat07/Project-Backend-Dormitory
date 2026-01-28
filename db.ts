@@ -9,6 +9,7 @@ export const conn = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   connectionLimit: 10,
+  waitForConnections: true,
 });
 
 // เช็คการเชื่อมต่อ

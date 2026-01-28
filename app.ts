@@ -34,20 +34,10 @@ app.use("/createdormitory", createdormitory);
 app.use('/banks', addBankRouter);
 
 
-app.use(jwtAuthen, (err: any, req: any, res: any, next: any) => {
+app.use((err: any, req: any, res: any, next: any) => {
   if (err.name === "UnauthorizedError") {
-    res.status(err.status).send({ message: err.message });
-    return;
+    return res.status(401).json({ message: "Invalid or missing token" });
   }
-  next();
-});
-
-// Test Token
-app.use("/testtoken", (req, res) => {
-  const payload: any = { username: "Aj.M" };
-  const jwttoken = generateToken(payload, secret);
-  res.status(200).json({
-    token: jwttoken,
-  });
+  next(err);
 });
 
