@@ -1,12 +1,11 @@
 import express from "express";
 import cors from "cors";
-import { jwtAuthen, secret, generateToken } from './utils/jwtauth';
-import { configureGoogleStrategy } from "./auth/googleStrategy";
-import { router as index } from "./api/index";
-import { router as authlocal } from "./api/auth-local";
-import { router as authRoutes } from "./auth/authRoutes";
-import { router as createdormitory } from "./api/create-dormitory";
-import { router as addBankRouter } from './api/add-bank';
+import { UnauthorizedError } from 'express-jwt';
+import { jwtAuthen } from './src/utils/jwtauth';
+import { configureGoogleStrategy } from "./src/config/googleStrategy";
+import authRoutes from "./src/routes/authRoutes";
+import dormitoryRoutes from "./src/routes/dormitoryRoutes";
+import bankRoutes from "./src/routes/bankRoutes";
 
 export const app = express();
 
@@ -24,20 +23,23 @@ app.use(
   })
 );
 
-app.use("/", index);
+// Routes
 app.use("/auth", authRoutes);
-app.use("/authlocal", authlocal);
+// Note: This effectively changes /authlocal/login to /auth/login. 
+// If compatibility is needed, we could alias it, but keeping it clean is better.
 
-app.use(jwtAuthen); // middleware ตรวจสอบ JWT
+app.use(jwtAuthen); // Middleware to check JWT for subsequent routes
 
-app.use("/createdormitory", createdormitory);
-app.use('/banks', addBankRouter);
-
+app.use("/createdormitory", dormitoryRoutes);
+app.use('/banks', bankRoutes);
 
 app.use((err: any, req: any, res: any, next: any) => {
-  if (err.name === "UnauthorizedError") {
-    return res.status(401).json({ message: "Invalid or missing token" });
+  if (err instanceof UnauthorizedError) {
+    return res.status(401).json({
+      message: 'Invalid or expired token',
+    });
   }
   next(err);
 });
+
 

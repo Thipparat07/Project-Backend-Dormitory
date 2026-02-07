@@ -1,0 +1,31 @@
+export const RES_MESSAGES = {
+    AUTH: {
+        MISSING_FIELDS: { th: 'กรุณากรอกข้อมูลให้ครบถ้วน', en: 'Missing required fields' },
+        EMAIL_EXISTS: { th: 'อีเมลนี้ถูกใช้งานแล้ว', en: 'Email already exists' },
+        REGISTER_SUCCESS: { th: 'สมัครสมาชิกสำเร็จ', en: 'User registered successfully' },
+        REGISTER_FAILED: { th: 'การสมัครสมาชิกล้มเหลว', en: 'Registration failed' },
+        MISSING_EMAIL_PASSWORD: { th: 'กรุณากรอกอีเมลและรหัสผ่าน', en: 'Missing email or password' },
+        USER_NOT_FOUND: { th: 'ไม่พบผู้ใช้งาน', en: 'User not found' },
+        INCORRECT_PASSWORD: { th: 'รหัสผ่านไม่ถูกต้อง', en: 'Incorrect password' },
+        LOGIN_SUCCESS: { th: 'เข้าสู่ระบบสำเร็จ', en: 'Login successful' },
+        LOGIN_FAILED: { th: 'เข้าสู่ระบบล้มเหลว', en: 'Login failed' },
+        USER_EXISTS: { th: 'ผู้ใช้งานนี้มีอยู่ในระบบแล้ว', en: 'User already exists' },
+        REGISTRATION_COMPLETE: { th: 'ลงทะเบียนสำเร็จ', en: 'Registration complete' },
+        INVALID_TOKEN: { th: 'Token ไม่ถูกต้องหรือหมดอายุ', en: 'Invalid or expired token' },
+        ACCOUNT_LINKED: { th: 'เชื่อมต่อบัญชีสำเร็จ', en: 'Account linked successfully' },
+    },
+    DORMITORY: {
+        ACCESS_DENIED_OWNER: { th: 'สิทธิ์การเข้าถึงถูกปฏิเสธ เฉพาะเจ้าของหอพักเท่านั้น', en: 'Access denied. Only owners can create dormitories.' },
+        MISSING_FIELDS: { th: 'กรุณากรอกข้อมูลให้ครบถ้วน', en: 'Missing required fields' },
+        OWNER_NOT_FOUND: { th: 'ไม่พบข้อมูลเจ้าของหอพัก', en: 'Owner not found' },
+        CREATE_SUCCESS: { th: 'สร้างหอพักสำเร็จ', en: 'Dormitory created successfully' },
+        INTERNAL_ERROR: { th: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์', en: 'Internal server error' },
+    },
+    BANK: {
+        ONLY_OWNER: { th: 'สิทธิ์การเข้าถึงถูกปฏิเสธ เฉพาะเจ้าของหอพักเท่านั้น', en: 'Only owners can add bank accounts.' },
+        MISSING_FIELDS: { th: 'กรุณากรอกข้อมูลให้ครบถ้วน', en: 'Missing required fields' },
+        UNAUTHORIZED_DORM: { th: 'คุณไม่มีสิทธิ์แก้ไขหอพักนี้', en: 'Unauthorized to modify this dormitory.' },
+        ADD_SUCCESS: { th: 'เพิ่มบัญชีธนาคารสำเร็จ', en: 'Bank account added successfully.' },
+        INTERNAL_ERROR: { th: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์', en: 'Internal server error' },
+    }
+};
