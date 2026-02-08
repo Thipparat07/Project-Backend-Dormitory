@@ -16,4 +16,9 @@ router.get('/:id/room-types', jwtAuthen, getRoomTypes);
 router.put('/:id/room-types/:typeId', jwtAuthen, updateRoomType);
 router.delete('/:id/room-types/:typeId', jwtAuthen, deleteRoomType);
 
+// Utility Routes
+import { createOrUpdateUtility, getUtility } from '../controllers/utilityController';
+router.post('/:id/utilities', jwtAuthen, createOrUpdateUtility);
+router.get('/:id/utilities', jwtAuthen, getUtility);
+
 export default router;

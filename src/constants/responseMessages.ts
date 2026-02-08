@@ -46,5 +46,10 @@ export const RES_MESSAGES = {
         NOT_FOUND: { th: 'ไม่พบข้อมูลบัญชีธนาคาร', en: 'Bank account not found.' },
         UNAUTHORIZED_ACTION: { th: 'คุณไม่มีสิทธิ์กระทำการนี้กับบัญชีธนาคารนี้', en: 'Unauthorized action on this bank account.' },
         INTERNAL_ERROR: { th: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์', en: 'Internal server error' },
+    },
+    UTILITY: {
+        UPDATE_SUCCESS: { th: 'บันทึกการตั้งค่าค่าน้ำ-ค่าไฟสำเร็จ', en: 'Utility rates updated successfully' },
+        GET_SUCCESS: { th: 'ดึงข้อมูลค่าน้ำ-ค่าไฟสำเร็จ', en: 'Get utility rates success' },
+        NOT_FOUND: { th: 'ไม่พบข้อมูลค่าน้ำ-ค่าไฟ', en: 'Utility rates not found' },
     }
 };
