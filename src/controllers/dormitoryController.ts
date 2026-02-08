@@ -105,3 +105,147 @@ export const createDormitory = async (req, res) => {
         res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
     }
 };
+
+export const getDormitoryRooms = async (req, res) => {
+    try {
+        const user = req.auth;
+        const dormitoryId = req.params.id;
+
+        if (!user) {
+            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        }
+
+        // Verify dormitory ownership
+        const [dormitories] = await conn.query<RowDataPacket[]>(
+            'SELECT * FROM dormitories WHERE id = ? AND owner_id = ?',
+            [dormitoryId, user.id]
+        );
+
+        if (dormitories.length === 0) {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
+        }
+
+        // Fetch rooms
+        const [rooms] = await conn.query<RowDataPacket[]>(
+            'SELECT * FROM rooms WHERE dormitory_id = ? ORDER BY floor_number, room_number',
+            [dormitoryId]
+        );
+
+        res.status(200).json(ResponseTemplate.success(RES_MESSAGES.ROOM.GET_SUCCESS, rooms));
+
+    } catch (err) {
+        console.error('Get dormitory rooms error:', err);
+        res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
+    }
+};
+
+export const updateRoomRent = async (req, res) => {
+    try {
+        const user = req.auth;
+        const dormitoryId = req.params.id;
+        const { room_ids, room_price } = req.body;
+
+        if (!user) {
+            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        }
+
+        if (!room_ids || !Array.isArray(room_ids) || room_ids.length === 0 || !room_price) {
+            return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.MISSING_FIELDS));
+        }
+
+        // Verify dormitory ownership
+        const [dormitories] = await conn.query<RowDataPacket[]>(
+            'SELECT * FROM dormitories WHERE id = ? AND owner_id = ?',
+            [dormitoryId, user.id]
+        );
+
+        if (dormitories.length === 0) {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
+        }
+
+        // Verify all rooms belong to this dormitory
+        // We can do this by checking if the count of rooms in DB matches the input array length
+        const placeholders = room_ids.map(() => '?').join(',');
+        const [validRooms] = await conn.query<RowDataPacket[]>(
+            `SELECT id FROM rooms WHERE dormitory_id = ? AND id IN (${placeholders})`,
+            [dormitoryId, ...room_ids]
+        );
+
+        if (validRooms.length !== room_ids.length) {
+            return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.ROOM.UNAUTHORIZED));
+        }
+
+        // Update rooms
+        await conn.execute(
+            `UPDATE rooms SET room_price = ? WHERE id IN (${placeholders})`,
+            [room_price, ...room_ids]
+        );
+
+        res.status(200).json(ResponseTemplate.success(RES_MESSAGES.ROOM.UPDATE_SUCCESS));
+
+    } catch (err) {
+        console.error('Update room rent error:', err);
+        res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
+    }
+};
+
+export const assignRoomType = async (req, res) => {
+    try {
+        const user = req.auth;
+        const dormitoryId = req.params.id;
+        const { room_ids, room_type_id } = req.body;
+
+        if (!user) {
+            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        }
+
+        if (!room_ids || !Array.isArray(room_ids) || room_ids.length === 0 || !room_type_id) {
+            return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.MISSING_FIELDS));
+        }
+
+        // Verify dormitory ownership
+        const [dormitories] = await conn.query<RowDataPacket[]>(
+            'SELECT * FROM dormitories WHERE id = ? AND owner_id = ?',
+            [dormitoryId, user.id]
+        );
+
+        if (dormitories.length === 0) {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
+        }
+
+        // Verify room type exists and belongs to dormitory
+        const [roomTypes] = await conn.query<RowDataPacket[]>(
+            'SELECT * FROM room_types WHERE id = ? AND dormitory_id = ?',
+            [room_type_id, dormitoryId]
+        );
+
+        if (roomTypes.length === 0) {
+            return res.status(404).json(ResponseTemplate.error(RES_MESSAGES.ROOM_TYPE.NOT_FOUND));
+        }
+
+        const roomTypePrice = roomTypes[0].price;
+
+        // Verify all rooms belong to this dormitory
+        const placeholders = room_ids.map(() => '?').join(',');
+        const [validRooms] = await conn.query<RowDataPacket[]>(
+            `SELECT id FROM rooms WHERE dormitory_id = ? AND id IN (${placeholders})`,
+            [dormitoryId, ...room_ids]
+        );
+
+        if (validRooms.length !== room_ids.length) {
+            return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.ROOM.UNAUTHORIZED));
+        }
+
+        // Update rooms
+        await conn.execute(
+            `UPDATE rooms SET room_type_id = ? WHERE id IN (${placeholders})`,
+            [room_type_id, ...room_ids]
+        );
+
+        res.status(200).json(ResponseTemplate.success(RES_MESSAGES.ROOM_TYPE.ASSIGN_SUCCESS));
+
+    } catch (err) {
+        console.error('Assign room type error:', err);
+        res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
+    }
+};

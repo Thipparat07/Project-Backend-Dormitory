@@ -21,6 +21,20 @@ export const RES_MESSAGES = {
         CREATE_SUCCESS: { th: 'สร้างหอพักสำเร็จ', en: 'Dormitory created successfully' },
         INTERNAL_ERROR: { th: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์', en: 'Internal server error' },
     },
+    ROOM: {
+        GET_SUCCESS: { th: 'ดึงข้อมูลห้องพักสำเร็จ', en: 'Get rooms success' },
+        UPDATE_SUCCESS: { th: 'อัปเดตค่าเช่าห้องสำเร็จ', en: 'Update room rent success' },
+        NOT_FOUND: { th: 'ไม่พบข้อมูลห้องพัก', en: 'Room not found' },
+        UNAUTHORIZED: { th: 'คุณไม่มีสิทธิ์แก้ไขห้องพักนี้', en: 'Unauthorized to modify this room' },
+    },
+    ROOM_TYPE: {
+        CREATE_SUCCESS: { th: 'สร้างประเภทห้องพักสำเร็จ', en: 'Room type created successfully' },
+        GET_SUCCESS: { th: 'ดึงข้อมูลประเภทห้องพักสำเร็จ', en: 'Get room types success' },
+        UPDATE_SUCCESS: { th: 'อัปเดตประเภทห้องพักสำเร็จ', en: 'Update room type success' },
+        DELETE_SUCCESS: { th: 'ลบประเภทห้องพักสำเร็จ', en: 'Delete room type success' },
+        NOT_FOUND: { th: 'ไม่พบข้อมูลประเภทห้องพัก', en: 'Room type not found' },
+        ASSIGN_SUCCESS: { th: 'กำหนดประเภทห้องพักสำเร็จ', en: 'Assign room type success' },
+    },
     BANK: {
         ONLY_OWNER: { th: 'สิทธิ์การเข้าถึงถูกปฏิเสธ เฉพาะเจ้าของหอพักเท่านั้น', en: 'Only owners can add bank accounts.' },
         MISSING_FIELDS: { th: 'กรุณากรอกข้อมูลให้ครบถ้วน', en: 'Missing required fields' },
