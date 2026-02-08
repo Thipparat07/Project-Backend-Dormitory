@@ -14,7 +14,7 @@ function generateJoinCode(length = 8) {
     return code;
 }
 
-export const createDormitory = async (req: AuthenticatedRequest, res: Response) => {
+export const createDormitory = async (req, res) => {
     try {
         const user = req.auth;
 
@@ -64,37 +64,40 @@ export const createDormitory = async (req: AuthenticatedRequest, res: Response) 
             }
         }
 
+        // Validate bill_delivery_mode (ENUM: 'auto', 'manual')
+        const validDeliveryModes = ['auto', 'manual'];
+        const deliveryMode = validDeliveryModes.includes(bill_delivery_mode) ? bill_delivery_mode : 'manual';
+
         // สร้างหอพักพร้อม join_code
         const [result] = await conn.execute(
             `INSERT INTO dormitories 
     (owner_id, name, phone, address, bill_generation_day, bill_due_date, billing_type, bill_delivery_mode, join_code)
    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [ownerId, name, phone, address, bill_generation_day, bill_due_date, billing_type, bill_delivery_mode, joinCode]
+            [ownerId, name, phone, address, bill_generation_day, bill_due_date, billing_type, deliveryMode, joinCode]
         );
         const dormitoryId = (result as any).insertId;
 
 
-        // สร้างชั้นและห้อง (ถ้ามี)
+        // สร้างห้องพัก (เก็บ floor_number ไว้ในตาราง rooms โดยตรง)
         for (let i = 1; i <= number_of_floors; i++) {
-            const [floorResult] = await conn.execute(
-                'INSERT INTO floors (dormitory_id, floor_number) VALUES (?, ?)',
-                [dormitoryId, i]
-            );
-            const floorId = (floorResult as any).insertId;
-
             for (let j = 1; j <= rooms_per_floor; j++) {
-                //ตั้งชื่อห้องเป็น Fชั้น-Rห้อง (เช่น F2-R3)
+                // ตั้งชื่อห้องเป็น Fชั้น-Rห้อง (เช่น F2-R3)
                 const roomNumber = `F${i}-R${j}`;
+
+                // ตรวจสอบว่ามี column dormitory_id หรือไม่ (หรือควรแก้ Database ให้มี)
+                // ตาม Schema ล่าสุด: rooms (id, floor_number, room_number, room_type_id, furniture_fee)
+                // **จำเป็นต้องเพิ่ม dormitory_id** ไม่งั้นจะไม่รู้ว่าห้องนี้ของหอไหน
+
                 await conn.execute(
-                    'INSERT INTO rooms (floor_id, room_number, room_type, room_rate) VALUES (?, ?, ?, ?)',
-                    [floorId, roomNumber, null, null]
+                    `INSERT INTO rooms (dormitory_id, floor_number, room_number) VALUES (?, ?, ?)`,
+                    [dormitoryId, i, roomNumber]
                 );
             }
         }
 
         res.status(200).json(ResponseTemplate.success(RES_MESSAGES.DORMITORY.CREATE_SUCCESS, {
             dormitory_id: dormitoryId,
-            join_code: joinCode,  // ส่ง join_code กลับไปให้เจ้าของหอ
+            join_code: joinCode,
         }));
 
     } catch (err) {

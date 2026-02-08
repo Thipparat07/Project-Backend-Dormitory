@@ -25,7 +25,12 @@ export const RES_MESSAGES = {
         ONLY_OWNER: { th: 'สิทธิ์การเข้าถึงถูกปฏิเสธ เฉพาะเจ้าของหอพักเท่านั้น', en: 'Only owners can add bank accounts.' },
         MISSING_FIELDS: { th: 'กรุณากรอกข้อมูลให้ครบถ้วน', en: 'Missing required fields' },
         UNAUTHORIZED_DORM: { th: 'คุณไม่มีสิทธิ์แก้ไขหอพักนี้', en: 'Unauthorized to modify this dormitory.' },
+        GET_ALL_BANKS_SUCCESS: { th: 'ดึงข้อมูลบัญชีธนาคารสำเร็จ', en: 'Get all banks success' },
         ADD_SUCCESS: { th: 'เพิ่มบัญชีธนาคารสำเร็จ', en: 'Bank account added successfully.' },
+        UPDATE_SUCCESS: { th: 'แก้ไขข้อมูลบัญชีธนาคารสำเร็จ', en: 'Bank account updated successfully.' },
+        DELETE_SUCCESS: { th: 'ลบบัญชีธนาคารสำเร็จ', en: 'Bank account deleted successfully.' },
+        NOT_FOUND: { th: 'ไม่พบข้อมูลบัญชีธนาคาร', en: 'Bank account not found.' },
+        UNAUTHORIZED_ACTION: { th: 'คุณไม่มีสิทธิ์กระทำการนี้กับบัญชีธนาคารนี้', en: 'Unauthorized action on this bank account.' },
         INTERNAL_ERROR: { th: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์', en: 'Internal server error' },
     }
 };

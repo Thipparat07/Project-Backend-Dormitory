@@ -31,7 +31,7 @@ app.use("/auth", authRoutes);
 app.use(jwtAuthen); // Middleware to check JWT for subsequent routes
 
 app.use("/createdormitory", dormitoryRoutes);
-app.use('/banks', bankRoutes);
+app.use('/bank', bankRoutes);
 
 app.use((err: any, req: any, res: any, next: any) => {
   if (err instanceof UnauthorizedError) {
