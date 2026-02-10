@@ -78,9 +78,11 @@ export const joinDormitory = async (req: AuthenticatedRequest, res: Response) =>
 
         const dormitoryId = dorms[0].id;
 
-        // ตรวจสอบว่าเคย Join หรือยัง
+        // ตรวจสอบว่าเคย Join หรือยัง (เฉพาะสถานะที่ Active อยู่: pending, approved)
         const [existing] = await conn.query<RowDataPacket[]>(
-            'SELECT id FROM tenants WHERE user_id = ? AND dormitory_id = ?',
+            `SELECT id FROM tenants 
+             WHERE user_id = ? AND dormitory_id = ? 
+             AND join_status IN ('pending', 'approved')`,
             [user.id, dormitoryId]
         );
 

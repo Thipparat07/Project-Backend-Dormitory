@@ -39,7 +39,22 @@ router.get('/:id/tenants', jwtAuthen, getMyTenants);
 
 // Owner Manage Tenants (Manual Add, Edit, Remove) 
 router.post('/:id/tenants', jwtAuthen, addTenant);
-router.put('/:id/tenants/:tenantId', jwtAuthen, updateTenant); // --ยังไม่Test--
-router.delete('/:id/tenants/:tenantId', jwtAuthen, removeTenant); // --ยังไม่Test--
+router.put('/:id/tenants/:tenantId', jwtAuthen, updateTenant);
+router.delete('/:id/tenants/:tenantId', jwtAuthen, removeTenant);
+
+// Billing Routes
+import { recordMeterReading, getMeterReadings, generateBill, getBills, getMyBills, uploadPaymentProof, updateBillStatus, getBillStats } from '../controllers/billingController';
+
+router.post('/:id/meter-readings', jwtAuthen, recordMeterReading);
+router.get('/:id/meter-readings', jwtAuthen, getMeterReadings);
+
+router.post('/:id/bills/generate', jwtAuthen, generateBill);
+router.get('/:id/bills', jwtAuthen, getBills);
+router.get('/:id/my-bills', jwtAuthen, getMyBills); // Tenant
+
+router.post('/:id/bills/:billId/payment', jwtAuthen, uploadPaymentProof); // Tenant
+router.put('/:id/bills/:billId/status', jwtAuthen, updateBillStatus); // Owner
+
+router.get('/:id/stats/expenses', jwtAuthen, getBillStats); // Tenant Charts
 
 export default router;

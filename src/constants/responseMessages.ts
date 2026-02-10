@@ -63,5 +63,19 @@ export const RES_MESSAGES = {
         GET_SUCCESS: { th: 'ดึงข้อมูลผู้เช่าสำเร็จ', en: 'Get tenants success' },
         UPDATE_SUCCESS: { th: 'แก้ไขข้อมูลผู้เช่าสำเร็จ', en: 'Tenant updated successfully' },
         DELETE_SUCCESS: { th: 'ลบผู้เช่า/ย้ายออกสำเร็จ', en: 'Tenant removed/moved out successfully' },
+    },
+    BILL: {
+        METER_RECORD_SUCCESS: { th: 'บันทึกเลขมิเตอร์สำเร็จ', en: 'Meter reading recorded successfully' },
+        GENERATE_SUCCESS: { th: 'สร้างบิลสำเร็จ', en: 'Bill generated successfully' },
+        PAYMENT_UPLOAD_SUCCESS: { th: 'อัปโหลดหลักฐานการชำระเงินสำเร็จ', en: 'Payment proof uploaded successfully' },
+        STATUS_UPDATE_SUCCESS: { th: 'อัปเดตสถานะบิลสำเร็จ', en: 'Bill status updated successfully' },
+        ERROR_METER_NOT_FOUND: { th: 'ไม่พบข้อมูลมิเตอร์สำหรับเดือนนี้', en: 'Meter reading not found for this month' },
+        ERROR_METER_LESS_THAN_PREVIOUS: { th: 'เลขมิเตอร์ปัจจุบันต้องมากกว่าหรือเท่ากับเลขมิเตอร์ก่อนหน้า', en: 'Current reading cannot be less than previous reading' },
+        ERROR_FUTURE_MONTH: { th: 'ไม่สามารถบันทึกข้อมูลมิเตอร์ล่วงหน้าได้', en: 'Cannot record meter reading for a future month' },
+        ERROR_BILL_ALREADY_PAID: { th: 'ไม่สามารถแก้ไขข้อมูลได้เนื่องจากบิลถูกชำระเงินเรียบร้อยแล้ว', en: 'Cannot modify data because the bill has already been paid' },
+        ERROR_METER_GAP: { th: 'ไม่พบข้อมูลมิเตอร์ของเดือนก่อนหน้า กรุณาตรวจสอบลำดับการจดเลข', en: 'Previous month meter reading missing. Please check the sequence.' },
+        ERROR_INVALID_RECORDING_WINDOW: { th: 'สามารถบันทึกหรือแก้ไขได้เฉพาะข้อมูลของเดือนปัจจุบันหรือเดือนที่แล้วเท่านั้น', en: 'Meter readings can only be recorded or modified for the current or previous month.' },
+        ERROR_INVALID_FORMAT: { th: 'รูปแบบข้อมูลไม่ถูกต้องหรือค่าตัวเลขไม่เหมาะสม', en: 'Invalid data format or numeric values.' },
+        ERROR_ROOM_IN_DORM_NOT_FOUND: { th: 'ไม่พบห้องพักในหอพักนี้', en: 'Room not found in this dormitory' },
     }
 };
