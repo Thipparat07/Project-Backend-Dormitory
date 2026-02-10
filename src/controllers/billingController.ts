@@ -223,11 +223,31 @@ export const generateBill = async (req: AuthenticatedRequest, res: Response) => 
 
         const user = req.auth;
         const dormitoryId = req.params.id;
-        const { room_id, month_year } = req.body; // furniture_fee, other_fee optional inputs?
+        let { room_id, month_year } = req.body; // furniture_fee, other_fee optional inputs?
+
+        // If body is string, try to parse it (Consistency with recordMeterReading)
+        if (typeof req.body === 'string') {
+            try {
+                const sanitizedBody = req.body.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+                const parsed = JSON.parse(sanitizedBody);
+                room_id = parsed.room_id;
+                month_year = parsed.month_year;
+            } catch (e) {
+                console.error('Failed to parse body as JSON', e);
+                connection.release();
+                return res.status(400).json(ResponseTemplate.error({ th: 'รูปแบบข้อมูลไม่ถูกต้อง (JSON Invalid)', en: 'Invalid JSON format' }));
+            }
+        }
 
         if (!user) {
             connection.release();
             return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        }
+
+        // Validate Inputs
+        if (!room_id || !month_year) {
+            connection.release();
+            return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.MISSING_FIELDS));
         }
 
         // Verify Owner
@@ -329,7 +349,8 @@ export const getBills = async (req: AuthenticatedRequest, res: Response) => {
         }
 
         let sql = `
-            SELECT b.*, r.room_number, u.full_name as tenant_name
+            SELECT b.*, r.room_number, u.full_name as tenant_name,
+                   (SELECT image FROM payment_proofs WHERE bill_id = b.id ORDER BY uploaded_at DESC LIMIT 1) as payment_image
             FROM bills b
             JOIN rooms r ON b.room_id = r.id
             JOIN tenants t ON b.tenant_id = t.id
