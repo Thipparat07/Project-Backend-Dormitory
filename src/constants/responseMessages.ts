@@ -77,5 +77,9 @@ export const RES_MESSAGES = {
         ERROR_INVALID_RECORDING_WINDOW: { th: 'สามารถบันทึกหรือแก้ไขได้เฉพาะข้อมูลของเดือนปัจจุบันหรือเดือนที่แล้วเท่านั้น', en: 'Meter readings can only be recorded or modified for the current or previous month.' },
         ERROR_INVALID_FORMAT: { th: 'รูปแบบข้อมูลไม่ถูกต้องหรือค่าตัวเลขไม่เหมาะสม', en: 'Invalid data format or numeric values.' },
         ERROR_ROOM_IN_DORM_NOT_FOUND: { th: 'ไม่พบห้องพักในหอพักนี้', en: 'Room not found in this dormitory' },
+    },
+    GLOBAL: {
+        ROUTE_NOT_FOUND: { th: 'ไม่พบเส้นทางที่คุณเรียกใช้งาน', en: 'Route not found' },
+        INTERNAL_SERVER_ERROR: { th: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์', en: 'Internal server error' },
     }
 };
