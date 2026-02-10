@@ -19,12 +19,14 @@ export const RES_MESSAGES = {
         MISSING_FIELDS: { th: 'กรุณากรอกข้อมูลให้ครบถ้วน', en: 'Missing required fields' },
         OWNER_NOT_FOUND: { th: 'ไม่พบข้อมูลเจ้าของหอพัก', en: 'Owner not found' },
         CREATE_SUCCESS: { th: 'สร้างหอพักสำเร็จ', en: 'Dormitory created successfully' },
+        GET_SUCCESS: { th: 'ดึงข้อมูลหอพักสำเร็จ', en: 'Get dormitory success' },
         INTERNAL_ERROR: { th: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์', en: 'Internal server error' },
     },
     ROOM: {
         GET_SUCCESS: { th: 'ดึงข้อมูลห้องพักสำเร็จ', en: 'Get rooms success' },
         UPDATE_SUCCESS: { th: 'อัปเดตค่าเช่าห้องสำเร็จ', en: 'Update room rent success' },
         NOT_FOUND: { th: 'ไม่พบข้อมูลห้องพัก', en: 'Room not found' },
+        ROOM_NOT_AVAILABLE: { th: 'ห้องพักไม่ว่าง', en: 'Room not available' },
         UNAUTHORIZED: { th: 'คุณไม่มีสิทธิ์แก้ไขห้องพักนี้', en: 'Unauthorized to modify this room' },
     },
     ROOM_TYPE: {
@@ -51,5 +53,15 @@ export const RES_MESSAGES = {
         UPDATE_SUCCESS: { th: 'บันทึกการตั้งค่าค่าน้ำ-ค่าไฟสำเร็จ', en: 'Utility rates updated successfully' },
         GET_SUCCESS: { th: 'ดึงข้อมูลค่าน้ำ-ค่าไฟสำเร็จ', en: 'Get utility rates success' },
         NOT_FOUND: { th: 'ไม่พบข้อมูลค่าน้ำ-ค่าไฟ', en: 'Utility rates not found' },
+    },
+    TENANT: {
+        JOIN_REQUEST_SUCCESS: { th: 'ส่งคำขอเข้าร่วมหอพักสำเร็จ', en: 'Join request sent successfully' },
+        ALREADY_JOINED: { th: 'คุณเป็นสมาชิกหรือส่งคำขอหอพักนี้แล้ว', en: 'You have already joined or requested to join this dormitory' },
+        DORM_NOT_FOUND: { th: 'ไม่พบหอพักจาก Join Code นี้', en: 'Dormitory not found with this Join Code' },
+        REQUEST_NOT_FOUND: { th: 'ไม่พบคำขอเข้าร่วม', en: 'Join request not found' },
+        APPROVE_SUCCESS: { th: 'อนุมัติผู้เช่าและกำหนดห้องสำเร็จ', en: 'Tenant approved and assigned to room successfully' },
+        GET_SUCCESS: { th: 'ดึงข้อมูลผู้เช่าสำเร็จ', en: 'Get tenants success' },
+        UPDATE_SUCCESS: { th: 'แก้ไขข้อมูลผู้เช่าสำเร็จ', en: 'Tenant updated successfully' },
+        DELETE_SUCCESS: { th: 'ลบผู้เช่า/ย้ายออกสำเร็จ', en: 'Tenant removed/moved out successfully' },
     }
 };
