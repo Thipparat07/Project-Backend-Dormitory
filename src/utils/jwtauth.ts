@@ -39,9 +39,9 @@ export const jwtAuthen = expressjwt({
 }).unless({
   path: [
     '/',
-    '/authlocal/register',
-    '/authlocal/login',
-    /^\/auth\/google\/.*/,
+    '/api/auth/register',
+    '/api/auth/login',
+    /^\/api\/auth\/google\/.*/,
   ],
 });
 

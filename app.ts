@@ -6,6 +6,8 @@ import { configureGoogleStrategy } from "./src/config/googleStrategy";
 import authRoutes from "./src/routes/authRoutes";
 import dormitoryRoutes from "./src/routes/dormitoryRoutes";
 import bankRoutes from "./src/routes/bankRoutes";
+import tenantRoutes from "./src/routes/tenantRoutes";
+import billingRoutes from "./src/routes/billingRoutes";
 
 export const app = express();
 
@@ -24,14 +26,13 @@ app.use(
 );
 
 // Routes
-app.use("/auth", authRoutes);
-// Note: This effectively changes /authlocal/login to /auth/login. 
-// If compatibility is needed, we could alias it, but keeping it clean is better.
-
 app.use(jwtAuthen); // Middleware to check JWT for subsequent routes
 
-app.use("/createdormitory", dormitoryRoutes);
-app.use('/bank', bankRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/dormitories", dormitoryRoutes);
+app.use("/api/tenants", tenantRoutes);
+app.use("/api/bills", billingRoutes);
+app.use("/api/banks", bankRoutes);
 
 app.use((err: any, req: any, res: any, next: any) => {
   if (err instanceof UnauthorizedError) {
