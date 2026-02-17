@@ -8,6 +8,7 @@ export const conn = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  port: Number(process.env.DB_PORT),
   connectionLimit: 10,
   waitForConnections: true,
 });
@@ -18,6 +19,7 @@ export const conn = mysql.createPool({
     const connection = await conn.getConnection();
     await connection.ping();
     console.log('Database connected successfully.');
+
     connection.release(); // คืน connection กลับไปที่ pool
   } catch (error) {
     console.error('Failed to connect to the database:', error);

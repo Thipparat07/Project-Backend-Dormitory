@@ -16,7 +16,16 @@ router.get("/google",
     })
 );
 
-router.get("/google/callback", googleCallback);
+router.get("/google/callback", (req, res, next) => {
+    passport.authenticate("google", { session: false }, (err, user, info) => {
+        if (err) return next(err);
+
+        req.user = user;
+        req.authInfo = info;
+
+        return googleCallback(req, res);
+    })(req, res, next);
+});
 
 router.post('/google/complete-registration', googleCompleteRegistration);
 

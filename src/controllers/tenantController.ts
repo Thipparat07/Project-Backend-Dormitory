@@ -1,12 +1,11 @@
 import { Response } from 'express';
 import { conn } from '../../db';
 import { RowDataPacket } from 'mysql2';
-import { AuthenticatedRequest } from '../models/request';
 import { ResponseTemplate } from '../utils/response';
 import { RES_MESSAGES } from '../constants/responseMessages';
 
 // ค้นหาหอพักด้วย Join Code (สำหรับ User ทั่วไป)
-export const getDormitoryForJoin = async (req: AuthenticatedRequest, res: Response) => {
+export const getDormitoryForJoin = async (req, res) => {
     try {
         const { join_code } = req.query;
 
@@ -53,7 +52,7 @@ export const getDormitoryForJoin = async (req: AuthenticatedRequest, res: Respon
 };
 
 // ผู้เช่าขอเข้าร่วมหอพัก
-export const joinDormitory = async (req: AuthenticatedRequest, res: Response) => {
+export const joinDormitory = async (req, res) => {
     try {
         const user = req.auth;
         const { join_code, national_id, date_of_birth, nationality, address, id_card_image, room_id } = req.body;
@@ -127,7 +126,7 @@ export const joinDormitory = async (req: AuthenticatedRequest, res: Response) =>
 };
 
 // เจ้าของหอดูคำขอเข้าร่วม (Pending)
-export const getJoinRequests = async (req: AuthenticatedRequest, res: Response) => {
+export const getJoinRequests = async (req, res) => {
     try {
         const user = req.auth;
         const dormitoryId = req.params.id;
@@ -167,7 +166,7 @@ export const getJoinRequests = async (req: AuthenticatedRequest, res: Response) 
 };
 
 // เจ้าของหออนุมัติ + อาจจะเปลี่ยนห้องให้ได้ถ้าต้องการ
-export const approveJoinRequest = async (req: AuthenticatedRequest, res: Response) => {
+export const approveJoinRequest = async (req, res) => {
     try {
         const user = req.auth;
         const dormitoryId = req.params.id;
@@ -223,7 +222,7 @@ export const approveJoinRequest = async (req: AuthenticatedRequest, res: Respons
 };
 
 // ดูรายชื่อผู้เช่าปัจจุบัน (Approved)
-export const getMyTenants = async (req: AuthenticatedRequest, res: Response) => {
+export const getMyTenants = async (req, res) => {
     try {
         const user = req.auth;
         const dormitoryId = req.params.id;
@@ -260,7 +259,7 @@ export const getMyTenants = async (req: AuthenticatedRequest, res: Response) => 
 };
 
 // ผู้เช่าดูข้อมูลหอพักตัวเอง (หลังจาก Join แล้ว)
-export const getMyDormitory = async (req: AuthenticatedRequest, res: Response) => {
+export const getMyDormitory = async (req, res) => {
     try {
         const user = req.auth;
 
@@ -334,7 +333,7 @@ export const getMyDormitory = async (req: AuthenticatedRequest, res: Response) =
 };
 
 // เจ้าของเพิ่มผู้เช่าเอง (Manual Add)
-export const addTenant = async (req: AuthenticatedRequest, res: Response) => {
+export const addTenant = async (req, res) => {
     try {
         const user = req.auth;
         const dormitoryId = req.params.id;
@@ -400,7 +399,7 @@ export const addTenant = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 // เจ้าของแก้ไขข้อมูลผู้เช่า
-export const updateTenant = async (req: AuthenticatedRequest, res: Response) => {
+export const updateTenant = async (req, res) => {
     const connection = await conn.getConnection();
     try {
         await connection.beginTransaction();
@@ -472,7 +471,7 @@ export const updateTenant = async (req: AuthenticatedRequest, res: Response) => 
 };
 
 // เจ้าของลบผู้เช่า (ย้ายออก / Move Out) -> คืนห้องว่าง
-export const removeTenant = async (req: AuthenticatedRequest, res: Response) => {
+export const removeTenant = async (req, res) => {
     const connection = await conn.getConnection();
     try {
         await connection.beginTransaction();

@@ -1,34 +1,13 @@
 import jwt from 'jsonwebtoken';
 import { expressjwt } from 'express-jwt';
-import { Request, Response, NextFunction } from 'express';
+import { UserRole, JWTPayload, GoogleTempPayload } from '../models/auth';
+export { UserRole, JWTPayload, GoogleTempPayload };
 
-/* ========= JWT CONFIG ========= */
-export const JWT_ISSUER = 'DORM_SYSTEM';
-export const JWT_AUDIENCE = 'DORM_WEB';
-export const JWT_EXPIRES_IN = '1d';
-export const GOOGLE_TEMP_AUDIENCE = 'GOOGLE_TEMP';
-
-/* ========= TYPES ========= */
-export type UserRole = 'OWNER' | 'TENANT';
-
-export interface JWTPayload {
-  id: number;
-  role: UserRole;
-}
-
-export interface GoogleTempPayload {
-  google_id: string;
-  email: string;
-  name: string;
-  photo?: string;
-}
-
-/* ========= SECRET ========= */
-const JWT_SECRET: string = process.env.JWT_SECRET || '';
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET is not defined in .env file');
-}
-export { JWT_SECRET };
+const JWT_SECRET = process.env.JWT_SECRET!;
+const JWT_ISSUER = process.env.JWT_ISSUER!;
+const JWT_AUDIENCE = process.env.JWT_AUDIENCE!;
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN as any;
+const GOOGLE_TEMP_AUDIENCE = process.env.GOOGLE_TEMP_AUDIENCE!;
 
 /* ========= JWT MIDDLEWARE ========= */
 export const jwtAuthen = expressjwt({
@@ -36,13 +15,6 @@ export const jwtAuthen = expressjwt({
   algorithms: ['HS256'],
   issuer: JWT_ISSUER,
   audience: JWT_AUDIENCE,
-}).unless({
-  path: [
-    '/',
-    '/api/auth/register',
-    '/api/auth/login',
-    /^\/api\/auth\/google\/.*/,
-  ],
 });
 
 /* ========= TOKEN HELPERS ========= */
@@ -69,7 +41,7 @@ export function verifyToken(token: string) {
 /* ========= GOOGLE TEMP TOKEN ========= */
 export function generateGoogleTempToken(payload: GoogleTempPayload): string {
   return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: '10m',
+    expiresIn: '3m',
     issuer: JWT_ISSUER,
     audience: GOOGLE_TEMP_AUDIENCE,
   });

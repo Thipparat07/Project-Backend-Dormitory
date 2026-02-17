@@ -7,18 +7,24 @@ import { RES_MESSAGES } from '../constants/responseMessages';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import passport from 'passport';
 
-type Role = 'OWNER' | 'TENANT';
+import { UserRole } from '../models/auth';
 
 interface UserRow {
     id: number;
     email: string;
     password: string;
     phone: string;
-    account_type: Role;
+    account_type: UserRole;
 }
 
 export const register = async (req, res) => {
     const { email, password, phone, account_type } = req.body;
+
+    if (!['owner', 'tenant'].includes(account_type)) {
+        return res.status(400).json(
+            ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_ROLE)
+        );
+    }
 
     if (!email || !password || !phone || !account_type) {
         return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.AUTH.MISSING_FIELDS));
@@ -59,7 +65,7 @@ export const login = async (req, res) => {
 
     try {
         const [rows] = await conn.query<RowDataPacket[]>(
-            'SELECT * FROM users WHERE email = ?',
+            'SELECT id, email, password, account_type FROM users WHERE email = ?',
             [email]
         );
 
@@ -74,7 +80,7 @@ export const login = async (req, res) => {
             return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INCORRECT_PASSWORD));
         }
 
-        // ✅ Access Token (มาตรฐานเดียวทั้งระบบ)
+        //Access Token (มาตรฐานเดียวทั้งระบบ)
         const token = generateToken({
             id: user.id,
             role: user.account_type,
@@ -95,57 +101,63 @@ export const login = async (req, res) => {
 };
 
 // Google Auth Callback Logic
-export const googleCallback = (req, res, next) => {
-    passport.authenticate("google", { session: false }, (err: any, user: any, info: any) => {
-        if (err) return next(err);
+export const googleCallback = (req, res) => {
+    const user = req.user;
+    const info = req.authInfo;
 
-        // login สำเร็จ
-        if (user) {
-            const accessToken = generateToken({
-                id: user.id,
-                role: user.account_type,
-            });
+    if (user) {
+        const accessToken = generateToken({
+            id: user.id,
+            role: user.account_type,
+        });
 
-            return res.redirect(
-                `http://localhost:4200/login?token=${accessToken}`
-            );
-        }
+        return res.redirect(
+            `${process.env.FRONTEND_URL}/login?token=${accessToken}`
+        );
+    }
 
-        // ต้องเลือก role
-        if (info?.message === 'need-select-role') {
-            const tempToken = (info as any).token;
-            return res.redirect(
-                `http://localhost:4200/select-role?token=${tempToken}`
-            );
-        }
+    if (info?.message === 'need-select-role') {
+        return res.redirect(
+            `${process.env.FRONTEND_URL}/select-role?token=${info.token}`
+        );
+    }
 
-        // email ซ้ำ ต้อง confirm
-        if (info?.message === 'email-exists') {
-            const tempToken = (info as any).token;
-            return res.redirect(
-                `http://localhost:4200/confirm-link?token=${tempToken}`
-            );
-        }
+    if (info?.message === 'email-exists') {
+        return res.redirect(
+            `${process.env.FRONTEND_URL}/confirm-link?token=${info.token}`
+        );
+    }
 
-        return res.redirect('/login?error=unauthorized');
-    })(req, res, next);
+    return res.redirect(`${process.env.FRONTEND_URL}/login?error=unauthorized`);
 };
+
 
 export const googleCompleteRegistration = async (req, res) => {
     try {
         const { token, account_type } = req.body;
 
-        const decoded = verifyGoogleTempToken(token) as any;
-        const { google_id, email, name, photo } = decoded;
+        const verifyResult = verifyGoogleTempToken(token) as any;
+        if (!verifyResult.valid) {
+            return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        }
+
+        const { google_id, email, name, photo } = verifyResult.decoded;
 
         const [rows] = await conn.execute(
-            'SELECT * FROM users WHERE google_id = ? OR email = ?',
+            'SELECT google_id, email FROM users WHERE google_id = ? OR email = ?',
             [google_id, email]
         );
 
         if ((rows as any).length > 0) {
             return res.status(409).json(ResponseTemplate.error(RES_MESSAGES.AUTH.USER_EXISTS));
         }
+
+        if (!['owner', 'tenant'].includes(account_type)) {
+            return res.status(400).json(
+                ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_ROLE)
+            );
+        }
+
 
         const [result] = await conn.execute(
             `INSERT INTO users (email, full_name, google_id, profile_picture, account_type)
@@ -158,9 +170,16 @@ export const googleCompleteRegistration = async (req, res) => {
             role: account_type,
         });
 
-        res.json(ResponseTemplate.success(RES_MESSAGES.AUTH.REGISTRATION_COMPLETE, { token: accessToken }));
+        res.json(ResponseTemplate.success(RES_MESSAGES.AUTH.REGISTRATION_COMPLETE, {
+            token: accessToken,
+            user: {
+                id: (result as any).insertId,
+                role: account_type as UserRole,
+            },
+        }));
 
     } catch (err) {
+        console.error("Google Registration Error:", err);
         res.status(400).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
     }
 };
@@ -168,34 +187,78 @@ export const googleCompleteRegistration = async (req, res) => {
 export const googleLinkConfirm = async (req, res) => {
     try {
         const { token } = req.body;
-        const decoded = verifyGoogleTempToken(token) as any;
 
-        const { email, google_id, name, photo } = decoded;
+        const verifyResult = verifyGoogleTempToken(token) as any;
 
+        if (!verifyResult.valid) {
+            return res.status(400).json(
+                ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN)
+            );
+        }
+
+        const { email, google_id, name, photo } = verifyResult.decoded;
+
+        // หา user
         const [rows] = await conn.execute(
-            'SELECT * FROM users WHERE email = ?',
+            'SELECT id, account_type, google_id FROM users WHERE email = ?',
             [email]
         );
 
         if ((rows as any).length === 0) {
-            return res.status(404).json(ResponseTemplate.error(RES_MESSAGES.AUTH.USER_NOT_FOUND));
+            return res.status(404).json(
+                ResponseTemplate.error(RES_MESSAGES.AUTH.USER_NOT_FOUND)
+            );
         }
 
+        const user = (rows as any)[0];
+
+        // ป้องกัน link ซ้ำ
+        if (user.google_id) {
+            return res.status(409).json(
+                ResponseTemplate.error(RES_MESSAGES.AUTH.GOOGLE_ALREADY_LINKED)
+            );
+        }
+
+        // ป้องกัน google_id ชน
+        const [googleCheck] = await conn.execute(
+            'SELECT id FROM users WHERE google_id = ?',
+            [google_id]
+        );
+
+        if ((googleCheck as any).length > 0) {
+            return res.status(409).json(
+                ResponseTemplate.error(RES_MESSAGES.AUTH.GOOGLE_ALREADY_LINKED)
+            );
+        }
+
+        // update
         await conn.execute(
             'UPDATE users SET google_id=?, full_name=?, profile_picture=? WHERE email=?',
             [google_id, name, photo, email]
         );
 
-        const user = (rows as any)[0];
-
+        // generate token
         const accessToken = generateToken({
             id: user.id,
             role: user.account_type,
         });
 
-        res.json(ResponseTemplate.success(RES_MESSAGES.AUTH.ACCOUNT_LINKED, { token: accessToken }));
+        res.json(
+            ResponseTemplate.success(
+                RES_MESSAGES.AUTH.ACCOUNT_LINKED,
+                {
+                    token: accessToken,
+                    user: {
+                        id: user.id,
+                        role: user.account_type,
+                    },
+                }
+            )
+        );
 
-    } catch {
-        res.status(400).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+    } catch (err) {
+        res.status(400).json(
+            ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN)
+        );
     }
 };

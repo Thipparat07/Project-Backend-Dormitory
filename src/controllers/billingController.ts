@@ -1,12 +1,11 @@
 import { Response } from 'express';
 import { conn } from '../../db';
 import { RowDataPacket } from 'mysql2';
-import { AuthenticatedRequest } from '../models/request';
 import { ResponseTemplate } from '../utils/response';
 import { RES_MESSAGES } from '../constants/responseMessages';
 
 // 1. จดมิเตอร์ (Meter Reading)
-export const recordMeterReading = async (req: AuthenticatedRequest, res: Response) => {
+export const recordMeterReading = async (req, res) => {
     const connection = await conn.getConnection();
     try {
         await connection.beginTransaction();
@@ -181,7 +180,7 @@ export const recordMeterReading = async (req: AuthenticatedRequest, res: Respons
 };
 
 // ดูประวัติมิเตอร์ (Get Meter Readings)
-export const getMeterReadings = async (req: AuthenticatedRequest, res: Response) => {
+export const getMeterReadings = async (req, res) => {
     try {
         const user = req.auth;
         const dormitoryId = req.params.id;
@@ -216,7 +215,7 @@ export const getMeterReadings = async (req: AuthenticatedRequest, res: Response)
 };
 
 // 2. สร้างบิล (Generate Bill) - Manual per Room or All? Let's do Single Room first for safety.
-export const generateBill = async (req: AuthenticatedRequest, res: Response) => {
+export const generateBill = async (req, res) => {
     const connection = await conn.getConnection();
     try {
         await connection.beginTransaction();
@@ -338,7 +337,7 @@ export const generateBill = async (req: AuthenticatedRequest, res: Response) => 
 };
 
 // ดูบิลทั้งหมด (Owner)
-export const getBills = async (req: AuthenticatedRequest, res: Response) => {
+export const getBills = async (req, res) => {
     try {
         const user = req.auth;
         const dormitoryId = req.params.id;
@@ -380,7 +379,7 @@ export const getBills = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 // ดูบิลของฉัน (Tenant)
-export const getMyBills = async (req: AuthenticatedRequest, res: Response) => {
+export const getMyBills = async (req, res) => {
     try {
         const user = req.auth;
         // Tenant routes logic often gets user from auth, then finds tenant record.
@@ -414,7 +413,7 @@ export const getMyBills = async (req: AuthenticatedRequest, res: Response) => {
 
 
 // 3. ชำระเงิน (Upload Payment Proof) - Tenant
-export const uploadPaymentProof = async (req: AuthenticatedRequest, res: Response) => {
+export const uploadPaymentProof = async (req, res) => {
     const connection = await conn.getConnection();
     try {
         await connection.beginTransaction();
@@ -453,7 +452,7 @@ export const uploadPaymentProof = async (req: AuthenticatedRequest, res: Respons
 };
 
 // 4. ตรวจสอบการชำระเงิน (Verify Payment) - Owner
-export const updateBillStatus = async (req: AuthenticatedRequest, res: Response) => {
+export const updateBillStatus = async (req, res) => {
     try {
         const user = req.auth;
         const { billId } = req.params; // /:id/bills/:billId/status
@@ -489,7 +488,7 @@ export const updateBillStatus = async (req: AuthenticatedRequest, res: Response)
 };
 
 // 5. สถิติ (Charts/Stats) - Tenant
-export const getBillStats = async (req: AuthenticatedRequest, res: Response) => {
+export const getBillStats = async (req, res) => {
     try {
         const user = req.auth;
         const dormitoryId = req.params.id;

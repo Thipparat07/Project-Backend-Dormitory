@@ -1,7 +1,6 @@
 import { Response } from 'express';
 import { conn } from '../../db';
 import { RowDataPacket } from 'mysql2';
-import { AuthenticatedRequest } from '../models/request';
 import { ResponseTemplate } from '../utils/response';
 import { RES_MESSAGES } from '../constants/responseMessages';
 

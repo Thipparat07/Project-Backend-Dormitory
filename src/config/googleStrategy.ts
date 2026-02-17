@@ -23,9 +23,9 @@ export function configureGoogleStrategy() {
                         return done(null, false, { message: 'email-not-found' });
                     }
 
-                    // 1️⃣ เคยผูก Google แล้ว → login ได้ทันที
+                    // เคยผูก Google แล้ว → login ได้ทันที
                     const [rows] = await conn.execute(
-                        'SELECT * FROM users WHERE google_id = ?',
+                        'SELECT id, account_type FROM users WHERE google_id = ?',
                         [google_id]
                     );
 
@@ -33,9 +33,9 @@ export function configureGoogleStrategy() {
                         return done(null, (rows as any)[0]);
                     }
 
-                    // 2️⃣ ยังไม่เคยผูก → เช็ค email
+                    // ยังไม่เคยผูก → เช็ค email
                     const [emailRows] = await conn.execute(
-                        'SELECT * FROM users WHERE email = ?',
+                        'SELECT email FROM users WHERE email = ?',
                         [email]
                     );
 
@@ -46,7 +46,7 @@ export function configureGoogleStrategy() {
                         photo,
                     });
 
-                    // 2.1 email ซ้ำ → ต้อง confirm การผูก
+                    // email ซ้ำ → ต้อง confirm การผูก
                     if ((emailRows as any).length > 0) {
                         return done(null, false, {
                             message: 'email-exists',
@@ -54,7 +54,7 @@ export function configureGoogleStrategy() {
                         });
                     }
 
-                    // 2.2 ยังไม่เคยมี account → ต้องเลือก role
+                    // ยังไม่เคยมี account → ต้องเลือก role
                     return done(null, false, {
                         message: 'need-select-role',
                         token: tempToken,

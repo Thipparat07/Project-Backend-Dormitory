@@ -13,6 +13,8 @@ export const RES_MESSAGES = {
         REGISTRATION_COMPLETE: { th: 'ลงทะเบียนสำเร็จ', en: 'Registration complete' },
         INVALID_TOKEN: { th: 'Token ไม่ถูกต้องหรือหมดอายุ', en: 'Invalid or expired token' },
         ACCOUNT_LINKED: { th: 'เชื่อมต่อบัญชีสำเร็จ', en: 'Account linked successfully' },
+        INVALID_ROLE: { th: 'ประเภทบัญชีไม่ถูกต้อง', en: 'Invalid account type' },
+        GOOGLE_ALREADY_LINKED: { th: 'บัญชี Google นี้ถูกเชื่อมต่อแล้ว', en: 'Google account already linked' },
     },
     DORMITORY: {
         ACCESS_DENIED_OWNER: { th: 'สิทธิ์การเข้าถึงถูกปฏิเสธ เฉพาะเจ้าของหอพักเท่านั้น', en: 'Access denied. Only owners can create dormitories.' },
