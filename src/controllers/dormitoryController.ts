@@ -21,7 +21,9 @@ export const getOwnerDormitories = async (req, res) => {
         const [dormitories] = await conn.query<RowDataPacket[]>(
             `SELECT d.*, 
             (SELECT COUNT(id) FROM rooms r WHERE r.dormitory_id = d.id) as total_rooms, 
-            (SELECT COUNT(id) FROM tenants t WHERE t.dormitory_id = d.id AND t.join_status = "approved") as total_tenants 
+            (SELECT COUNT(id) FROM tenants t WHERE t.dormitory_id = d.id AND t.join_status = "approved") as occupied_rooms,
+            ((SELECT COUNT(id) FROM rooms r WHERE r.dormitory_id = d.id) - (SELECT COUNT(id) FROM tenants t WHERE t.dormitory_id = d.id AND t.join_status = "approved")) as vacant_rooms,
+            (SELECT COUNT(DISTINCT b.room_id) FROM bills b JOIN rooms r ON b.room_id = r.id WHERE r.dormitory_id = d.id AND b.status = 'unpaid') as overdue_rooms
             FROM dormitories d WHERE d.owner_id = ? ORDER BY d.created_at DESC`,
             [ownerId]
         );
@@ -134,9 +136,16 @@ export const getDormitoryRooms = async (req, res) => {
     try {
         const dormitoryId = req.params.id;
 
-        // Fetch rooms
+        // Fetch rooms with their join status
         const [rooms] = await conn.query<RowDataPacket[]>(
-            'SELECT * FROM rooms WHERE dormitory_id = ? ORDER BY floor_number ASC, room_number ASC',
+            `SELECT r.*, rt.name as room_type_name, rt.price,
+            (SELECT t.join_status FROM tenants t 
+             WHERE t.room_id = r.id AND t.join_status IN ('approved', 'pending') 
+             ORDER BY FIELD(t.join_status, 'approved', 'pending') LIMIT 1) as join_status
+             FROM rooms r 
+             LEFT JOIN room_types rt ON r.room_type_id = rt.id
+             WHERE r.dormitory_id = ? 
+             ORDER BY r.floor_number ASC, r.room_number ASC`,
             [dormitoryId]
         );
 

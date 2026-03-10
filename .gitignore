@@ -1,3 +1,7 @@
 .env
 dormitory_system.sql
 /node_modules/
+/uploads/
+test_schema.ts
+debug_schema.ts
+test_context.js

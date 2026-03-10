@@ -130,12 +130,12 @@ export const joinDormitory = async (req, res) => {
 
         const dormitoryId = dorms[0].id;
 
-        // ตรวจสอบว่าเคย Join หรือยัง (เฉพาะสถานะที่ Active อยู่: pending, approved)
+        // ตรวจสอบว่าเคย Join ห้องนี้หรือยัง (เฉพาะสถานะที่ Active อยู่: pending, approved)
         const [existing] = await conn.query<RowDataPacket[]>(
             `SELECT id FROM tenants 
-             WHERE user_id = ? AND dormitory_id = ? 
+             WHERE user_id = ? AND dormitory_id = ? AND room_id = ?
              AND join_status IN ('pending', 'approved')`,
-            [user.id, dormitoryId]
+            [user.id, dormitoryId, room_id]
         );
 
         if (existing.length > 0) {
@@ -320,7 +320,7 @@ export const getTenantDormitories = async (req, res) => {
 
         const sql = `
             SELECT d.id, d.name, d.address, d.phone, d.join_code, 
-                   t.join_status, t.joined_at, r.room_number, r.floor_number
+                   t.join_status, t.joined_at, r.room_number, r.floor_number, t.room_id
             FROM tenants t
             JOIN dormitories d ON t.dormitory_id = d.id
             LEFT JOIN rooms r ON t.room_id = r.id
@@ -346,15 +346,23 @@ export const getMyDormitory = async (req, res) => {
             return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
         }
 
+        const { room_id } = req.query;
+
         // หา dormitory_id จาก tenants table
-        const [tenants] = await conn.query<RowDataPacket[]>(
-            `SELECT t.*, r.room_number, r.floor_number, rt.price AS room_price, r.furniture_fee
+        let sql = `SELECT t.*, r.room_number, r.floor_number, rt.price AS room_price, r.furniture_fee
              FROM tenants t
              LEFT JOIN rooms r ON t.room_id = r.id
              LEFT JOIN room_types rt ON r.room_type_id = rt.id
-             WHERE t.user_id = ? AND t.join_status = 'approved'`,
-            [user.id]
-        );
+             WHERE t.user_id = ? AND t.join_status = 'approved'`;
+
+        const params: any[] = [user.id];
+
+        if (room_id) {
+            sql += ` AND t.room_id = ?`;
+            params.push(room_id);
+        }
+
+        const [tenants] = await conn.query<RowDataPacket[]>(sql, params);
 
         if (tenants.length === 0) {
             return res.status(404).json(ResponseTemplate.error(RES_MESSAGES.TENANT.REQUEST_NOT_FOUND));
@@ -377,7 +385,7 @@ export const getMyDormitory = async (req, res) => {
 
         // ดึงข้อมูลธนาคาร
         const [banks] = await conn.query<RowDataPacket[]>(
-            'SELECT bank_name, account_number, account_name FROM bank_accounts WHERE dormitory_id = ?',
+            'SELECT bank_name, account_number, account_name FROM dormitory_banks WHERE dormitory_id = ?',
             [dormitoryId]
         );
 
@@ -448,8 +456,8 @@ export const addTenant = async (req, res) => {
             return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.ROOM.ROOM_NOT_AVAILABLE));
         }
 
-        // Check if already tenant
-        const [existing] = await conn.query<RowDataPacket[]>('SELECT id FROM tenants WHERE user_id = ? AND dormitory_id = ?', [userId, dormitoryId]);
+        // Check if already tenant in this room
+        const [existing] = await conn.query<RowDataPacket[]>('SELECT id FROM tenants WHERE user_id = ? AND dormitory_id = ? AND room_id = ?', [userId, dormitoryId, room_id]);
         if (existing.length > 0) {
             return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.TENANT.ALREADY_JOINED));
         }
@@ -601,5 +609,76 @@ export const removeTenant = async (req, res) => {
         res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
     } finally {
         connection.release();
+    }
+};
+
+export const getRoomDetail = async (req, res) => {
+    try {
+        const dormitoryId = req.params.id;
+        const roomId = req.params.roomId;
+
+        // 1. Fetch Room Info
+        const [rooms] = await conn.query<RowDataPacket[]>(
+            `SELECT r.*, rt.name as type_name, rt.price as type_price 
+             FROM rooms r 
+             LEFT JOIN room_types rt ON r.room_type_id = rt.id 
+             WHERE r.id = ? AND r.dormitory_id = ?`,
+            [roomId, dormitoryId]
+        );
+
+        if (rooms.length === 0) {
+            return res.status(404).json(ResponseTemplate.error(RES_MESSAGES.ROOM.NOT_FOUND));
+        }
+
+        const room = rooms[0];
+
+        // 2. Fetch Tenant Info (Approved or Pending)
+        const [tenants] = await conn.query<RowDataPacket[]>(
+            `SELECT t.*, u.full_name, u.email, u.phone, u.profile_picture 
+             FROM tenants t 
+             JOIN users u ON t.user_id = u.id 
+             WHERE t.room_id = ? AND t.dormitory_id = ? 
+             AND t.join_status IN ('approved', 'pending')
+             ORDER BY FIELD(t.join_status, 'approved', 'pending') LIMIT 1`,
+            [roomId, dormitoryId]
+        );
+
+        const tenant = tenants.length > 0 ? tenants[0] : null;
+
+        res.status(200).json(ResponseTemplate.success(RES_MESSAGES.ROOM.GET_SUCCESS, {
+            room,
+            tenant
+        }));
+
+    } catch (err) {
+        console.error('Get room detail error:', err);
+        res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
+    }
+};
+export const getLatestProfile = async (req, res) => {
+    try {
+        const user = req.auth;
+        if (!user) {
+            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        }
+
+        // Get the most recent tenant record for this user that has profile data
+        const [profiles] = await conn.query<RowDataPacket[]>(
+            `SELECT national_id, date_of_birth, nationality, address, id_card_image
+             FROM tenants
+             WHERE user_id = ? 
+             ORDER BY joined_at DESC LIMIT 1`,
+            [user.id]
+        );
+
+        if (profiles.length === 0) {
+            return res.status(200).json(ResponseTemplate.success(RES_MESSAGES.TENANT.GET_SUCCESS, null));
+        }
+
+        res.status(200).json(ResponseTemplate.success(RES_MESSAGES.TENANT.GET_SUCCESS, profiles[0]));
+
+    } catch (err) {
+        console.error('Get latest profile error:', err);
+        res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
     }
 };
