@@ -1,12 +1,15 @@
 import express from 'express';
-import { register, login, googleCallback, googleCompleteRegistration, googleLinkConfirm } from '../controllers/authController';
+import { register, login, googleCallback, googleLinkConfirm, getMe, logout } from '../controllers/authController';
 import passport from 'passport';
+import { jwtAuthen } from '../utils/jwtauth';
 
 const router = express.Router();
 
 // Local Auth
 router.post('/register', register);
 router.post('/login', login);
+router.post('/logout', logout);
+router.get('/me', jwtAuthen, getMe);
 
 // Google Auth
 router.get("/google",
@@ -26,8 +29,6 @@ router.get("/google/callback", (req, res, next) => {
         return googleCallback(req, res);
     })(req, res, next);
 });
-
-router.post('/google/complete-registration', googleCompleteRegistration);
 
 router.post('/google/link-confirm', googleLinkConfirm);
 

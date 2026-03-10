@@ -13,12 +13,33 @@ function generateJoinCode(length = 8) {
     return code;
 }
 
+export const getOwnerDormitories = async (req, res) => {
+    try {
+        const user = req.auth;
+        const ownerId = user.id;
+
+        const [dormitories] = await conn.query<RowDataPacket[]>(
+            `SELECT d.*, 
+            (SELECT COUNT(id) FROM rooms r WHERE r.dormitory_id = d.id) as total_rooms, 
+            (SELECT COUNT(id) FROM tenants t WHERE t.dormitory_id = d.id AND t.join_status = "approved") as total_tenants 
+            FROM dormitories d WHERE d.owner_id = ? ORDER BY d.created_at DESC`,
+            [ownerId]
+        );
+
+        res.status(200).json(ResponseTemplate.success(RES_MESSAGES.DORMITORY.GET_SUCCESS, dormitories));
+
+    } catch (err) {
+        console.error('Get owner dormitories error:', err);
+        res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
+    }
+};
+
 export const createDormitory = async (req, res) => {
     try {
         const user = req.auth;
 
-        if (!user || user.role !== 'owner') {
-            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
+        if (!user) {
+            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
         }
 
         const ownerId = user.id;
@@ -41,7 +62,7 @@ export const createDormitory = async (req, res) => {
 
         // ยืนยันว่าผู้ใช้มีอยู่ในฐานข้อมูล
         const [users] = await conn.query<RowDataPacket[]>(
-            'SELECT * FROM users WHERE id = ? AND account_type = "owner"',
+            'SELECT * FROM users WHERE id = ?',
             [ownerId]
         );
         if (users.length === 0) {
@@ -77,9 +98,13 @@ export const createDormitory = async (req, res) => {
         const dormitoryId = (result as any).insertId;
 
 
+        // แปลงค่าให้เป็น Number อย่างชัดเจน
+        const totalFloors = Number(number_of_floors) || 0;
+        const totalRoomsPerFloor = Number(rooms_per_floor) || 0;
+
         // สร้างห้องพัก (เก็บ floor_number ไว้ในตาราง rooms โดยตรง)
-        for (let i = 1; i <= number_of_floors; i++) {
-            for (let j = 1; j <= rooms_per_floor; j++) {
+        for (let i = 1; i <= totalFloors; i++) {
+            for (let j = 1; j <= totalRoomsPerFloor; j++) {
                 // ตั้งชื่อห้องเป็น Fชั้น-Rห้อง (เช่น F2-R3)
                 const roomNumber = `F${i}-R${j}`;
 
@@ -107,26 +132,11 @@ export const createDormitory = async (req, res) => {
 
 export const getDormitoryRooms = async (req, res) => {
     try {
-        const user = req.auth;
         const dormitoryId = req.params.id;
-
-        if (!user) {
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
-        }
-
-        // Verify dormitory ownership
-        const [dormitories] = await conn.query<RowDataPacket[]>(
-            'SELECT * FROM dormitories WHERE id = ? AND owner_id = ?',
-            [dormitoryId, user.id]
-        );
-
-        if (dormitories.length === 0) {
-            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
-        }
 
         // Fetch rooms
         const [rooms] = await conn.query<RowDataPacket[]>(
-            'SELECT * FROM rooms WHERE dormitory_id = ? ORDER BY floor_number, room_number',
+            'SELECT * FROM rooms WHERE dormitory_id = ? ORDER BY floor_number ASC, room_number ASC',
             [dormitoryId]
         );
 
@@ -138,17 +148,17 @@ export const getDormitoryRooms = async (req, res) => {
     }
 };
 
-export const updateRoomRent = async (req, res) => {
+export const updateFurnitureFee = async (req, res) => {
     try {
         const user = req.auth;
         const dormitoryId = req.params.id;
-        const { room_ids, room_price } = req.body;
+        const { room_ids, furniture_fee } = req.body;
 
-        if (!user) {
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'owner') {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
         }
 
-        if (!room_ids || !Array.isArray(room_ids) || room_ids.length === 0 || !room_price) {
+        if (!room_ids || !Array.isArray(room_ids) || room_ids.length === 0 || furniture_fee === undefined) {
             return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.MISSING_FIELDS));
         }
 
@@ -176,14 +186,14 @@ export const updateRoomRent = async (req, res) => {
 
         // Update rooms
         await conn.execute(
-            `UPDATE rooms SET room_price = ? WHERE id IN (${placeholders})`,
-            [room_price, ...room_ids]
+            `UPDATE rooms SET furniture_fee = ? WHERE id IN (${placeholders})`,
+            [furniture_fee, ...room_ids]
         );
 
         res.status(200).json(ResponseTemplate.success(RES_MESSAGES.ROOM.UPDATE_SUCCESS));
 
     } catch (err) {
-        console.error('Update room rent error:', err);
+        console.error('Update furniture fee error:', err);
         res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
     }
 };
@@ -194,8 +204,8 @@ export const assignRoomType = async (req, res) => {
         const dormitoryId = req.params.id;
         const { room_ids, room_type_id } = req.body;
 
-        if (!user) {
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'owner') {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
         }
 
         if (!room_ids || !Array.isArray(room_ids) || room_ids.length === 0 || !room_type_id) {

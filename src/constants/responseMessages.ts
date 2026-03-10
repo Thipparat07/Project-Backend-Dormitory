@@ -17,7 +17,7 @@ export const RES_MESSAGES = {
         GOOGLE_ALREADY_LINKED: { th: 'บัญชี Google นี้ถูกเชื่อมต่อแล้ว', en: 'Google account already linked' },
     },
     DORMITORY: {
-        ACCESS_DENIED_OWNER: { th: 'สิทธิ์การเข้าถึงถูกปฏิเสธ เฉพาะเจ้าของหอพักเท่านั้น', en: 'Access denied. Only owners can create dormitories.' },
+        ACCESS_DENIED_OWNER: { th: 'สิทธิ์การเข้าถึงถูกปฏิเสธ เฉพาะเจ้าของหอพักเท่านั้น', en: 'Access denied. Only owners can perform this action.' },
         MISSING_FIELDS: { th: 'กรุณากรอกข้อมูลให้ครบถ้วน', en: 'Missing required fields' },
         OWNER_NOT_FOUND: { th: 'ไม่พบข้อมูลเจ้าของหอพัก', en: 'Owner not found' },
         CREATE_SUCCESS: { th: 'สร้างหอพักสำเร็จ', en: 'Dormitory created successfully' },
@@ -29,6 +29,7 @@ export const RES_MESSAGES = {
         UPDATE_SUCCESS: { th: 'อัปเดตค่าเช่าห้องสำเร็จ', en: 'Update room rent success' },
         NOT_FOUND: { th: 'ไม่พบข้อมูลห้องพัก', en: 'Room not found' },
         ROOM_NOT_AVAILABLE: { th: 'ห้องพักไม่ว่าง', en: 'Room not available' },
+        ROOM_EMPTY: { th: 'ไม่พบผู้เช่าในห้องพักนี้', en: 'No tenant found in this room' },
         UNAUTHORIZED: { th: 'คุณไม่มีสิทธิ์แก้ไขห้องพักนี้', en: 'Unauthorized to modify this room' },
     },
     ROOM_TYPE: {

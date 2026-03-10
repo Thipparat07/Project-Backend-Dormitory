@@ -1,11 +1,11 @@
-import { UserRole } from '../models/auth';
+import { ContextRoles } from '../models/auth';
 
 declare global {
     namespace Express {
         interface Request {
             auth: {
                 id: number;
-                role: UserRole;
+                contexts: ContextRoles;
             };
         }
     }

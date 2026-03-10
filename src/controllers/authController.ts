@@ -7,26 +7,51 @@ import { RES_MESSAGES } from '../constants/responseMessages';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import passport from 'passport';
 
-import { UserRole } from '../models/auth';
+import { ContextRoles } from '../models/auth';
 
 interface UserRow {
     id: number;
     email: string;
     password: string;
     phone: string;
-    account_type: UserRole;
 }
 
+export const getUserContexts = async (userId: number): Promise<ContextRoles> => {
+
+    const [ownerRows] = await conn.query<RowDataPacket[]>(
+        'SELECT id FROM dormitories WHERE owner_id = ?',
+        [userId]
+    );
+
+    const [tenantRows] = await conn.query<RowDataPacket[]>(
+        `SELECT dormitory_id 
+   FROM tenants 
+   WHERE user_id = ? 
+   AND join_status = 'approved'`,
+        [userId]
+    );
+
+    const contexts: ContextRoles = {};
+
+    // owner
+    ownerRows.forEach((row: any) => {
+        contexts[row.id] = 'owner';
+    });
+
+    // tenant (don't override owner)
+    tenantRows.forEach((row: any) => {
+        if (!contexts[row.dormitory_id]) {
+            contexts[row.dormitory_id] = 'tenant';
+        }
+    });
+
+    return contexts;
+};
+
 export const register = async (req, res) => {
-    const { email, password, phone, account_type } = req.body;
+    const { email, password, phone } = req.body;
 
-    if (!['owner', 'tenant'].includes(account_type)) {
-        return res.status(400).json(
-            ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_ROLE)
-        );
-    }
-
-    if (!email || !password || !phone || !account_type) {
+    if (!email || !password || !phone) {
         return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.AUTH.MISSING_FIELDS));
     }
 
@@ -43,8 +68,8 @@ export const register = async (req, res) => {
         const hash = await bcrypt.hash(password, 10);
 
         const [result] = await conn.query<ResultSetHeader>(
-            'INSERT INTO users (email, password, phone, account_type) VALUES (?, ?, ?, ?)',
-            [email, hash, phone, account_type]
+            'INSERT INTO users (email, password, phone) VALUES (?, ?, ?)',
+            [email, hash, phone]
         );
 
         res.status(201).json(ResponseTemplate.success(RES_MESSAGES.AUTH.REGISTER_SUCCESS, {
@@ -65,7 +90,7 @@ export const login = async (req, res) => {
 
     try {
         const [rows] = await conn.query<RowDataPacket[]>(
-            'SELECT id, email, password, account_type FROM users WHERE email = ?',
+            'SELECT id, email, password FROM users WHERE email = ?',
             [email]
         );
 
@@ -80,17 +105,25 @@ export const login = async (req, res) => {
             return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INCORRECT_PASSWORD));
         }
 
-        //Access Token (มาตรฐานเดียวทั้งระบบ)
+        const contexts = await getUserContexts(user.id);
+
+        // Access Token
         const token = generateToken({
             id: user.id,
-            role: user.account_type,
+            contexts: contexts,
+        });
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            maxAge: 24 * 60 * 60 * 1000 // 1 day
         });
 
         res.json(ResponseTemplate.success(RES_MESSAGES.AUTH.LOGIN_SUCCESS, {
-            token,
             user: {
                 id: user.id,
-                role: user.account_type,
+                contexts: contexts,
             },
         }));
 
@@ -106,21 +139,28 @@ export const googleCallback = (req, res) => {
     const info = req.authInfo;
 
     if (user) {
-        const accessToken = generateToken({
-            id: user.id,
-            role: user.account_type,
-        });
+        (async () => {
+            const contexts = await getUserContexts(user.id);
+            const accessToken = generateToken({
+                id: user.id,
+                contexts: contexts,
+            });
 
-        return res.redirect(
-            `${process.env.FRONTEND_URL}/login?token=${accessToken}`
-        );
+            res.cookie('token', accessToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+                maxAge: 24 * 60 * 60 * 1000 // 1 day
+            });
+
+            return res.redirect(
+                `${process.env.FRONTEND_URL}/login-success` // URL ใหม่เมื่อล็อกอินผ่าน Google จะไม่ต้องมี token แนบไปแล้ว
+            );
+        })();
+        return;
     }
 
-    if (info?.message === 'need-select-role') {
-        return res.redirect(
-            `${process.env.FRONTEND_URL}/select-role?token=${info.token}`
-        );
-    }
+
 
     if (info?.message === 'email-exists') {
         return res.redirect(
@@ -132,57 +172,7 @@ export const googleCallback = (req, res) => {
 };
 
 
-export const googleCompleteRegistration = async (req, res) => {
-    try {
-        const { token, account_type } = req.body;
 
-        const verifyResult = verifyGoogleTempToken(token) as any;
-        if (!verifyResult.valid) {
-            return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
-        }
-
-        const { google_id, email, name, photo } = verifyResult.decoded;
-
-        const [rows] = await conn.execute(
-            'SELECT google_id, email FROM users WHERE google_id = ? OR email = ?',
-            [google_id, email]
-        );
-
-        if ((rows as any).length > 0) {
-            return res.status(409).json(ResponseTemplate.error(RES_MESSAGES.AUTH.USER_EXISTS));
-        }
-
-        if (!['owner', 'tenant'].includes(account_type)) {
-            return res.status(400).json(
-                ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_ROLE)
-            );
-        }
-
-
-        const [result] = await conn.execute(
-            `INSERT INTO users (email, full_name, google_id, profile_picture, account_type)
-       VALUES (?, ?, ?, ?, ?)`,
-            [email, name, google_id, photo, account_type]
-        );
-
-        const accessToken = generateToken({
-            id: (result as any).insertId,
-            role: account_type,
-        });
-
-        res.json(ResponseTemplate.success(RES_MESSAGES.AUTH.REGISTRATION_COMPLETE, {
-            token: accessToken,
-            user: {
-                id: (result as any).insertId,
-                role: account_type as UserRole,
-            },
-        }));
-
-    } catch (err) {
-        console.error("Google Registration Error:", err);
-        res.status(400).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
-    }
-};
 
 export const googleLinkConfirm = async (req, res) => {
     try {
@@ -200,7 +190,7 @@ export const googleLinkConfirm = async (req, res) => {
 
         // หา user
         const [rows] = await conn.execute(
-            'SELECT id, account_type, google_id FROM users WHERE email = ?',
+            'SELECT id, google_id FROM users WHERE email = ?',
             [email]
         );
 
@@ -237,20 +227,28 @@ export const googleLinkConfirm = async (req, res) => {
             [google_id, name, photo, email]
         );
 
+        const contexts = await getUserContexts(user.id);
+
         // generate token
         const accessToken = generateToken({
             id: user.id,
-            role: user.account_type,
+            contexts: contexts,
+        });
+
+        res.cookie('token', accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            maxAge: 24 * 60 * 60 * 1000 // 1 day
         });
 
         res.json(
             ResponseTemplate.success(
                 RES_MESSAGES.AUTH.ACCOUNT_LINKED,
                 {
-                    token: accessToken,
                     user: {
                         id: user.id,
-                        role: user.account_type,
+                        contexts: contexts,
                     },
                 }
             )
@@ -260,5 +258,47 @@ export const googleLinkConfirm = async (req, res) => {
         res.status(400).json(
             ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN)
         );
+    }
+};
+
+export const logout = (req, res) => {
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    });
+    res.json(ResponseTemplate.success({ th: 'ออกจากระบบสำเร็จ', en: 'Logout successful' }));
+};
+
+export const getMe = async (req, res) => {
+    try {
+        const user = req.auth;
+        if (!user) {
+            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        }
+
+        const contexts = await getUserContexts(user.id);
+
+        // ดึงข้อมูลพื้นฐานเพิ่ม (เช่น อีเมล ชื่อ รูปภาพ)
+        const [rows] = await conn.execute(
+            'SELECT id, email, full_name, profile_picture FROM users WHERE id = ?',
+            [user.id]
+        );
+
+        if ((rows as any).length === 0) {
+            return res.status(404).json(ResponseTemplate.error(RES_MESSAGES.AUTH.USER_NOT_FOUND));
+        }
+
+        const userData = (rows as any)[0];
+
+        res.json(ResponseTemplate.success({ th: 'ดึงข้อมูลสำเร็จ', en: 'Get Me Success' }, {
+            user: {
+                ...userData,
+                contexts: contexts
+            }
+        }));
+
+    } catch (err) {
+        res.status(500).json(ResponseTemplate.error(RES_MESSAGES.GLOBAL.INTERNAL_SERVER_ERROR));
     }
 };

@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { expressjwt } from 'express-jwt';
+import { Request } from 'express';
 import { UserRole, JWTPayload, GoogleTempPayload } from '../models/auth';
+import { Response, NextFunction } from 'express';
 export { UserRole, JWTPayload, GoogleTempPayload };
 
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -15,6 +17,7 @@ export const jwtAuthen = expressjwt({
   algorithms: ['HS256'],
   issuer: JWT_ISSUER,
   audience: JWT_AUDIENCE,
+  getToken: (req: Request) => req.cookies?.token,
 });
 
 /* ========= TOKEN HELPERS ========= */
@@ -57,4 +60,35 @@ export function verifyGoogleTempToken(token: string) {
   } catch {
     return { valid: false };
   }
+}
+
+/* ========= AUTO REFRESH TOKEN ========= */
+export function refreshTokenIfNeeded(
+  req: any,
+  res: Response,
+  next: NextFunction
+) {
+  const user = req.auth;
+
+  if (!user) {
+    return next();
+  }
+
+  // token เก่าไม่มี contexts
+  if (!user.contexts) {
+
+    const newPayload: JWTPayload = {
+      id: user.id,
+      contexts: {}
+    };
+
+    const newToken = generateToken(newPayload);
+
+    res.cookie("token", newToken, {
+      httpOnly: true,
+      sameSite: "lax"
+    });
+  }
+
+  next();
 }

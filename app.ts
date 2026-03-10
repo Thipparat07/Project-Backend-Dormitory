@@ -1,7 +1,8 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { UnauthorizedError } from 'express-jwt';
-import { jwtAuthen } from './src/utils/jwtauth';
+import { jwtAuthen, refreshTokenIfNeeded } from './src/utils/jwtauth';
 import { configureGoogleStrategy } from "./src/config/googleStrategy";
 import authRoutes from "./src/routes/authRoutes";
 import dormitoryRoutes from "./src/routes/dormitoryRoutes";
@@ -17,14 +18,16 @@ configureGoogleStrategy();
 
 app.use(express.text());
 app.use(express.json());
+app.use(cookieParser());
 app.use(passport.initialize());
+app.use(refreshTokenIfNeeded);
 
 app.use(
   cors({
-    origin: "*",
-    // origin: process.env.CORS_ORIGIN,
+    origin: process.env.CORS_ORIGIN || "http://localhost:5173",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 

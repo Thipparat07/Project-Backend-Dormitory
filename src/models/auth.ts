@@ -1,8 +1,12 @@
 export type UserRole = 'owner' | 'tenant';
 
+export interface ContextRoles {
+    [dormitoryId: string]: UserRole;
+}
+
 export interface JWTPayload {
     id: number;
-    role: UserRole;
+    contexts: ContextRoles;
 }
 
 export interface GoogleTempPayload {

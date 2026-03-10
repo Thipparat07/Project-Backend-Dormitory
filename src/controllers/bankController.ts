@@ -7,12 +7,11 @@ import { RES_MESSAGES } from '../constants/responseMessages';
 export const Banks = async (req, res) => {
     try {
         const user = req.auth;
+        const { dormitory_id, bank_name, account_number, account_name } = req.body;
 
-        if (!user || user.role !== 'owner') {
+        if (!user || !user.contexts || user.contexts[String(dormitory_id)] !== 'owner') {
             return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.BANK.ONLY_OWNER));
         }
-
-        const { dormitory_id, bank_name, account_number, account_name } = req.body;
 
         // ตรวจสอบข้อมูล
         if (!dormitory_id || !bank_name || !account_number || !account_name) {
@@ -44,26 +43,40 @@ export const Banks = async (req, res) => {
     }
 };
 
-export const getAllBanks = async (req, res) => {
+export const getBanksByDormitory = async (req, res) => {
     try {
+
         const user = req.auth;
-        if (!user || user.role !== 'owner') {
+        const dormitoryId = Number(req.params.id);   // แก้ตรงนี้
+
+        if (!dormitoryId) {
+            return res.status(400).json(("Invalid dormitory id"));
+        }
+
+        if (!user || !user.contexts || !Object.values(user.contexts).includes('owner')) {
             return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.BANK.ONLY_OWNER));
         }
 
-        // Fetch all banks associated with dormitories owned by the user
-        const [banks] = await conn.query<RowDataPacket[]>(
-            `SELECT db.*, d.name as dormitory_name 
-             FROM dormitory_banks db
-             JOIN dormitories d ON db.dormitory_id = d.id
-             WHERE d.owner_id = ?`,
-            [user.id]
+        const [banks] = await conn.query(
+            `SELECT db.*, d.name as dormitory_name
+       FROM dormitory_banks db
+       JOIN dormitories d ON db.dormitory_id = d.id
+       WHERE d.owner_id = ? AND db.dormitory_id = ?`,
+            [user.id, dormitoryId]
         );
 
-        res.status(200).json(ResponseTemplate.success(RES_MESSAGES.BANK.GET_ALL_BANKS_SUCCESS, banks));
+        res.status(200).json(
+            ResponseTemplate.success(RES_MESSAGES.BANK.GET_ALL_BANKS_SUCCESS, banks)
+        );
+
     } catch (error) {
-        console.error('Get all banks error:', error);
-        res.status(500).json(ResponseTemplate.error(RES_MESSAGES.BANK.INTERNAL_ERROR));
+
+        console.error('Get banks error:', error);
+
+        res.status(500).json(
+            ResponseTemplate.error(RES_MESSAGES.BANK.INTERNAL_ERROR)
+        );
+
     }
 };
 
@@ -73,7 +86,7 @@ export const updateBank = async (req, res) => {
         const bankId = req.params.id;
         const { bank_name, account_number, account_name } = req.body;
 
-        if (!user || user.role !== 'owner') {
+        if (!user || !user.contexts || !Object.values(user.contexts).includes('owner')) {
             return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.BANK.ONLY_OWNER));
         }
 
@@ -112,7 +125,7 @@ export const deleteBank = async (req, res) => {
         const user = req.auth;
         const bankId = req.params.id;
 
-        if (!user || user.role !== 'owner') {
+        if (!user || !user.contexts || !Object.values(user.contexts).includes('owner')) {
             return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.BANK.ONLY_OWNER));
         }
 

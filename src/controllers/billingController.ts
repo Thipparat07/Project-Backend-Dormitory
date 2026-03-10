@@ -35,9 +35,9 @@ export const recordMeterReading = async (req, res) => {
             }
         }
 
-        if (!user) {
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'owner') {
             connection.release();
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
         }
 
         // Validate Inputs
@@ -73,8 +73,8 @@ export const recordMeterReading = async (req, res) => {
 
         // 2. Paid Bill Lock (Cannot edit if already paid)
         const [paidBills] = await connection.query<RowDataPacket[]>(
-            `SELECT id FROM bills WHERE dormitory_id = ? AND room_id = ? AND month_year = ? AND status = 'paid'`,
-            [dormitoryId, room_id, month_year]
+            `SELECT id FROM bills WHERE room_id = ? AND month_year = ? AND status = 'paid'`,
+            [room_id, month_year]
         );
         if (paidBills.length > 0) {
             connection.release();
@@ -94,23 +94,6 @@ export const recordMeterReading = async (req, res) => {
             return res.status(404).json(ResponseTemplate.error(RES_MESSAGES.BILL.ERROR_ROOM_IN_DORM_NOT_FOUND));
         }
 
-        // Get Tenant in that room (Active) to link tenant_id
-        const [tenants] = await connection.query<RowDataPacket[]>(
-            `SELECT id FROM tenants WHERE dormitory_id = ? AND room_id = ? AND join_status = 'approved'`,
-            [dormitoryId, room_id]
-        );
-
-        let tenantId = 0;
-        if (tenants.length > 0) {
-            tenantId = tenants[0].id;
-        } else {
-            // Room might be empty, but we can still record meter? Usually not useful but let's allow it or blocking?
-            // If empty, allow recording but tenant_id = 0 or NULL? Table says tenant_id NOT NULL.
-            // So we must have a tenant.
-            connection.release();
-            return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.ROOM.ROOM_NOT_AVAILABLE)); // Or "No tenant found"
-        }
-
         // Find Previous Reading (Last Month)
         // Logic: substract 1 month from month_year
         // Or just find the latest reading before this one.
@@ -123,9 +106,9 @@ export const recordMeterReading = async (req, res) => {
         // 1. Try to fetch from DB (Highest Priority for Data Integrity)
         const [prevReading] = await connection.query<RowDataPacket[]>(
             `SELECT water_current, electricity_current FROM meter_readings 
-             WHERE dormitory_id = ? AND room_id = ? AND month_year < ? 
+             WHERE room_id = ? AND month_year < ? 
              ORDER BY month_year DESC LIMIT 1`,
-            [dormitoryId, room_id, month_year]
+            [room_id, month_year]
         );
 
         if (prevReading.length > 0) {
@@ -145,8 +128,8 @@ export const recordMeterReading = async (req, res) => {
 
         // Check if reading for this month already exists
         const [existing] = await connection.query<RowDataPacket[]>(
-            `SELECT id FROM meter_readings WHERE dormitory_id = ? AND room_id = ? AND month_year = ?`,
-            [dormitoryId, room_id, month_year]
+            `SELECT id FROM meter_readings WHERE room_id = ? AND month_year = ?`,
+            [room_id, month_year]
         );
 
         if (existing.length > 0) {
@@ -161,9 +144,9 @@ export const recordMeterReading = async (req, res) => {
         } else {
             // Insert
             await connection.execute(
-                `INSERT INTO meter_readings (tenant_id, dormitory_id, room_id, month_year, water_previous, water_current, electricity_previous, electricity_current)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [tenantId, dormitoryId, room_id, month_year, finalWaterPrevious, water_current, finalElectricityPrevious, electricity_current]
+                `INSERT INTO meter_readings (room_id, month_year, water_previous, water_current, electricity_previous, electricity_current)
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [room_id, month_year, finalWaterPrevious, water_current, finalElectricityPrevious, electricity_current]
             );
         }
 
@@ -186,15 +169,15 @@ export const getMeterReadings = async (req, res) => {
         const dormitoryId = req.params.id;
         const { month_year } = req.query;
 
-        if (!user) {
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'owner') {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
         }
 
         let sql = `
             SELECT m.*, r.room_number 
             FROM meter_readings m
             JOIN rooms r ON m.room_id = r.id
-            WHERE m.dormitory_id = ?
+            WHERE r.dormitory_id = ?
         `;
         const params: any[] = [dormitoryId];
 
@@ -238,9 +221,9 @@ export const generateBill = async (req, res) => {
             }
         }
 
-        if (!user) {
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'owner') {
             connection.release();
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
         }
 
         // Validate Inputs
@@ -258,8 +241,8 @@ export const generateBill = async (req, res) => {
 
         // 1. Get Meter Reading
         const [meters] = await connection.query<RowDataPacket[]>(
-            `SELECT * FROM meter_readings WHERE dormitory_id = ? AND room_id = ? AND month_year = ?`,
-            [dormitoryId, room_id, month_year]
+            `SELECT * FROM meter_readings WHERE room_id = ? AND month_year = ?`,
+            [room_id, month_year]
         );
 
         if (meters.length === 0) {
@@ -299,10 +282,22 @@ export const generateBill = async (req, res) => {
 
         const totalResult = roomRate + waterCost + elecCost + furnitureFee + otherFee;
 
+        // We must check if there's an active tenant in this room to generate a bill
+        const [activeTenants] = await connection.query<RowDataPacket[]>(
+            `SELECT id FROM tenants WHERE room_id = ? AND dormitory_id = ? AND join_status = 'approved'`,
+            [room_id, dormitoryId]
+        );
+
+        if (activeTenants.length === 0) {
+            connection.release();
+            return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.ROOM.ROOM_EMPTY));
+        }
+        const tenantId = activeTenants[0].id;
+
         // 4. Upsert Bill
         const [existingBill] = await connection.query<RowDataPacket[]>(
-            `SELECT id FROM bills WHERE dormitory_id = ? AND room_id = ? AND month_year = ?`,
-            [dormitoryId, room_id, month_year]
+            `SELECT id FROM bills WHERE room_id = ? AND month_year = ?`,
+            [room_id, month_year]
         );
 
         if (existingBill.length > 0) {
@@ -318,9 +313,9 @@ export const generateBill = async (req, res) => {
         } else {
             // Insert
             await connection.execute(
-                `INSERT INTO bills (tenant_id, dormitory_id, room_id, month_year, room_rate, water_unit, water_cost, electricity_unit, electricity_cost, furniture_fee, other_fee, total, status)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid')`,
-                [meter.tenant_id, dormitoryId, room_id, month_year, roomRate, waterUnit, waterCost, elecUnit, elecCost, furnitureFee, otherFee, totalResult]
+                `INSERT INTO bills (tenant_id, room_id, month_year, room_rate, water_unit, water_cost, electricity_unit, electricity_cost, furniture_fee, other_fee, total, status)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid')`,
+                [tenantId, room_id, month_year, roomRate, waterUnit, waterCost, elecUnit, elecCost, furnitureFee, otherFee, totalResult]
             );
         }
 
@@ -343,8 +338,8 @@ export const getBills = async (req, res) => {
         const dormitoryId = req.params.id;
         const { month_year, status } = req.query;
 
-        if (!user) {
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'owner') {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
         }
 
         let sql = `
@@ -354,7 +349,7 @@ export const getBills = async (req, res) => {
             JOIN rooms r ON b.room_id = r.id
             JOIN tenants t ON b.tenant_id = t.id
             JOIN users u ON t.user_id = u.id
-            WHERE b.dormitory_id = ?
+            WHERE r.dormitory_id = ?
         `;
         const params: any[] = [dormitoryId];
 
@@ -388,8 +383,8 @@ export const getMyBills = async (req, res) => {
         // Based on routes.ts pattern, likely /:id/my-bills.
         const dormitoryId = req.params.id;
 
-        if (!user) {
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'tenant') {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_ROLE));
         }
 
         const [tenants] = await conn.query<RowDataPacket[]>('SELECT id FROM tenants WHERE user_id = ? AND dormitory_id = ?', [user.id, dormitoryId]);
@@ -419,10 +414,16 @@ export const uploadPaymentProof = async (req, res) => {
         await connection.beginTransaction();
 
         const user = req.auth;
+        const dormitoryId = req.params.id;
         const { billId } = req.params;
         const { image } = req.body; // Base64 or URL
 
-        if (!user || !image) {
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'tenant') {
+            connection.release();
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_ROLE));
+        }
+
+        if (!image) {
             connection.release();
             return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.MISSING_FIELDS));
         }
@@ -455,10 +456,15 @@ export const uploadPaymentProof = async (req, res) => {
 export const updateBillStatus = async (req, res) => {
     try {
         const user = req.auth;
-        const { billId } = req.params; // /:id/bills/:billId/status
+        const dormitoryId = req.params.id; // From route /:id/bills/:billId/status
+        const { billId } = req.params;
         const { status } = req.body; // 'paid' or 'unpaid' (reject)
 
-        if (!user || !['paid', 'unpaid'].includes(status)) {
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'owner') {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
+        }
+
+        if (!['paid', 'unpaid'].includes(status)) {
             return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.MISSING_FIELDS));
         }
 
@@ -467,7 +473,7 @@ export const updateBillStatus = async (req, res) => {
         // Skipping deep check for brevity, assuming :id param check in route or trusted owner.
         // Let's do a quick check via bill join.
         const [billCheck] = await conn.query<RowDataPacket[]>(
-            `SELECT b.id FROM bills b JOIN dormitories d ON b.dormitory_id = d.id WHERE b.id = ? AND d.owner_id = ?`,
+            `SELECT b.id FROM bills b JOIN rooms r ON b.room_id = r.id JOIN dormitories d ON r.dormitory_id = d.id WHERE b.id = ? AND d.owner_id = ?`,
             [billId, user.id]
         );
         if (billCheck.length === 0) {
@@ -493,8 +499,8 @@ export const getBillStats = async (req, res) => {
         const user = req.auth;
         const dormitoryId = req.params.id;
 
-        if (!user) {
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'tenant') {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_ROLE));
         }
 
         // Get Tenant ID
@@ -506,10 +512,11 @@ export const getBillStats = async (req, res) => {
 
         // Fetch last 6 months bills
         const [bills] = await conn.query<RowDataPacket[]>(
-            `SELECT month_year, total, water_unit, water_cost, electricity_unit, electricity_cost
-             FROM bills 
-             WHERE tenant_id = ? AND dormitory_id = ?
-             ORDER BY month_year ASC LIMIT 6`, // Last 6 records ascending for graph
+            `SELECT b.month_year, b.total, b.water_unit, b.water_cost, b.electricity_unit, b.electricity_cost
+             FROM bills b
+             JOIN rooms r ON b.room_id = r.id
+             WHERE b.tenant_id = ? AND r.dormitory_id = ?
+             ORDER BY b.month_year ASC LIMIT 6`, // Last 6 records ascending for graph
             [tenantId, dormitoryId]
         );
 

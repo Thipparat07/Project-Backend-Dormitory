@@ -51,6 +51,59 @@ export const getDormitoryForJoin = async (req, res) => {
     }
 };
 
+// ดึงชั้นที่มีห้องว่าง
+export const getAvailableFloors = async (req, res) => {
+    try {
+        const { dormitoryId } = req.params;
+
+        if (!dormitoryId) {
+            return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.MISSING_FIELDS));
+        }
+
+        const [floors] = await conn.query(
+            `SELECT DISTINCT floor_number
+             FROM rooms
+             WHERE dormitory_id = ?
+             AND status = 'available'
+             ORDER BY floor_number`,
+            [dormitoryId]
+        );
+
+        res.status(200).json(ResponseTemplate.success(RES_MESSAGES.DORMITORY.GET_SUCCESS, floors));
+
+    } catch (err) {
+        console.error('Get available floors error:', err);
+        res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
+    }
+};
+
+// ดึงห้องว่างตามชั้น
+export const getAvailableRooms = async (req, res) => {
+    try {
+        const { dormitoryId, floor } = req.params;
+
+        if (!dormitoryId || !floor) {
+            return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.MISSING_FIELDS));
+        }
+
+        const [rooms] = await conn.query(
+            `SELECT id, room_number
+             FROM rooms
+             WHERE dormitory_id = ?
+             AND floor_number = ?
+             AND status = 'available'
+             ORDER BY room_number`,
+            [dormitoryId, floor]
+        );
+
+        res.status(200).json(ResponseTemplate.success(RES_MESSAGES.DORMITORY.GET_SUCCESS, rooms));
+
+    } catch (err) {
+        console.error('Get available rooms error:', err);
+        res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
+    }
+};
+
 // ผู้เช่าขอเข้าร่วมหอพัก
 export const joinDormitory = async (req, res) => {
     try {
@@ -131,8 +184,8 @@ export const getJoinRequests = async (req, res) => {
         const user = req.auth;
         const dormitoryId = req.params.id;
 
-        if (!user) {
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'owner') {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
         }
 
         // Verify ownership
@@ -168,32 +221,20 @@ export const getJoinRequests = async (req, res) => {
 // เจ้าของหออนุมัติ + อาจจะเปลี่ยนห้องให้ได้ถ้าต้องการ
 export const approveJoinRequest = async (req, res) => {
     try {
-        const user = req.auth;
         const dormitoryId = req.params.id;
         const tenantId = req.params.tenantId;
         let { room_id } = req.body;
 
-        if (!user) {
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
-        }
-
-        // Verify ownership
-        const [dorms] = await conn.query<RowDataPacket[]>(
-            'SELECT id FROM dormitories WHERE id = ? AND owner_id = ?',
-            [dormitoryId, user.id]
-        );
-
-        if (dorms.length === 0) {
-            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
-        }
-
         // ถ้า Owner ไม่ได้ส่ง room_id มา ให้ใช้ room_id ที่ Tenant เลือกไว้ตอนขอ Join
         if (!room_id) {
-            const [tenant] = await conn.query<RowDataPacket[]>('SELECT room_id FROM tenants WHERE id = ?', [tenantId]);
+            const [tenant] = await conn.query<RowDataPacket[]>('SELECT room_id FROM tenants WHERE id = ? AND dormitory_id = ?', [tenantId, dormitoryId]);
             if (tenant.length > 0 && tenant[0].room_id) {
                 room_id = tenant[0].room_id;
             } else {
-                return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.MISSING_FIELDS));
+                return res.status(404).json(ResponseTemplate.error({
+                    th: 'ไม่พบข้อมูลคำขอเช่าห้องนี้ หรือยังไม่มีการเลือกห้อง',
+                    en: 'Tenant request not found or room not selected.'
+                }));
             }
         }
 
@@ -202,10 +243,20 @@ export const approveJoinRequest = async (req, res) => {
         // if (roomCheck[0].status === 'occupied') ...
 
         // Update Tenant: status -> approved, room_id -> assigned/comfirmed
-        await conn.execute(
+        const [result] = await conn.execute(
             `UPDATE tenants SET join_status = 'approved', room_id = ? WHERE id = ? AND dormitory_id = ?`,
             [room_id, tenantId, dormitoryId]
         );
+
+        // จัดการ Error กรณีที่มีการใส่ ID มั่ว หรือข้อมูลถูกจัดการไปแล้ว
+        if ((result as any).affectedRows === 0) {
+            return res.status(404).json(ResponseTemplate.error({
+                th: 'ไม่พบคำขอเข้าร่วมนี้ หรืออาจจะถูกอนุมัติ/ปฏิเสธไปแล้ว',
+                en: 'Join request not found or already processed.'
+            }));
+        }
+
+        console.log("affectedRows:", result);
 
         // Update Room: status -> occupied
         await conn.execute(
@@ -227,8 +278,8 @@ export const getMyTenants = async (req, res) => {
         const user = req.auth;
         const dormitoryId = req.params.id;
 
-        if (!user) {
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'owner') {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
         }
 
         // Verify ownership
@@ -254,6 +305,34 @@ export const getMyTenants = async (req, res) => {
 
     } catch (err) {
         console.error('Get my tenants error:', err);
+        res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
+    }
+};
+
+// ดูรายชื่อหอพักที่ผู้เช่าเป็นสมาชิกอยู่ (ทั้งรออนุมัติและอนุมัติแล้ว)
+export const getTenantDormitories = async (req, res) => {
+    try {
+        const user = req.auth;
+
+        if (!user) {
+            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        }
+
+        const sql = `
+            SELECT d.id, d.name, d.address, d.phone, d.join_code, 
+                   t.join_status, t.joined_at, r.room_number, r.floor_number
+            FROM tenants t
+            JOIN dormitories d ON t.dormitory_id = d.id
+            LEFT JOIN rooms r ON t.room_id = r.id
+            WHERE t.user_id = ?
+            ORDER BY t.joined_at DESC
+        `;
+        const [dormitories] = await conn.query<RowDataPacket[]>(sql, [user.id]);
+
+        res.status(200).json(ResponseTemplate.success(RES_MESSAGES.DORMITORY.GET_SUCCESS, dormitories));
+
+    } catch (err) {
+        console.error('Get tenant dormitories error:', err);
         res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
     }
 };
@@ -339,8 +418,8 @@ export const addTenant = async (req, res) => {
         const dormitoryId = req.params.id;
         const { email, room_id, national_id, phone, full_name, date_of_birth, nationality, address, id_card_image } = req.body;
 
-        if (!user) {
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'owner') {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
         }
 
         // Validate required fields (Email is crucial to link user)
@@ -409,9 +488,9 @@ export const updateTenant = async (req, res) => {
         const tenantId = req.params.tenantId;
         const { national_id, date_of_birth, nationality, address, id_card_image, full_name, phone } = req.body;
 
-        if (!user) {
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'owner') {
             connection.release();
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
         }
 
         // Verify ownership
@@ -480,9 +559,9 @@ export const removeTenant = async (req, res) => {
         const dormitoryId = req.params.id;
         const tenantId = req.params.tenantId;
 
-        if (!user) {
+        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'owner') {
             connection.release();
-            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
         }
 
         // Verify ownership

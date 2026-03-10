@@ -25,7 +25,7 @@ export function configureGoogleStrategy() {
 
                     // เคยผูก Google แล้ว → login ได้ทันที
                     const [rows] = await conn.execute(
-                        'SELECT id, account_type FROM users WHERE google_id = ?',
+                        'SELECT id FROM users WHERE google_id = ?',
                         [google_id]
                     );
 
@@ -39,26 +39,30 @@ export function configureGoogleStrategy() {
                         [email]
                     );
 
-                    const tempToken = generateGoogleTempToken({
-                        google_id,
-                        email,
-                        name,
-                        photo,
-                    });
-
                     // email ซ้ำ → ต้อง confirm การผูก
                     if ((emailRows as any).length > 0) {
+                        const tempToken = generateGoogleTempToken({
+                            google_id,
+                            email,
+                            name,
+                            photo,
+                        });
+
                         return done(null, false, {
                             message: 'email-exists',
                             token: tempToken,
                         });
                     }
 
-                    // ยังไม่เคยมี account → ต้องเลือก role
-                    return done(null, false, {
-                        message: 'need-select-role',
-                        token: tempToken,
-                    });
+                    // ยังไม่เคยมี account และ email ไม่ซ้ำ → สมัครสมาชิกให้ใหม่ทันที (Seamless Log-in)
+                    const [insertResult] = await conn.execute(
+                        `INSERT INTO users (email, full_name, google_id, profile_picture)
+                         VALUES (?, ?, ?, ?)`,
+                        [email, name, google_id, photo || null]
+                    );
+
+                    const newUser = { id: (insertResult as any).insertId };
+                    return done(null, newUser);
 
                 } catch (err) {
                     console.error("OAuth Error:", err);
