@@ -1,6 +1,6 @@
 // Tenant-related Routes
 import express from 'express';
-import { joinDormitory, getJoinRequests, approveJoinRequest, getMyTenants, getDormitoryForJoin, getMyDormitory, addTenant, updateTenant, removeTenant, getTenantDormitories, getAvailableFloors, getAvailableRooms } from '../controllers/tenantController';
+import { joinDormitory, getJoinRequests, approveJoinRequest, getMyTenants, getDormitoryForJoin, getMyDormitory, addTenant, updateTenant, removeTenant, getTenantDormitories, getAvailableFloors, getAvailableRooms, getRoomDetail, getLatestProfile } from '../controllers/tenantController';
 import { jwtAuthen } from '../utils/jwtauth';
 import { requireOwner } from '../middleware/requireOwner';
 
@@ -17,6 +17,8 @@ router.get('/:dormitoryId/floors/:floor/available-rooms', jwtAuthen, getAvailabl
 router.get('/my-dormitories', jwtAuthen, getTenantDormitories);
 // ดูข้อมูลหอพักที่ตนเองพักอยู่ (หลังจากได้รับการอนุมัติ) (อาจจะไม่ได้ใช้แล้วถ้าใช้ my-dormitories แทน แต่เก็บไว้ก่อน)
 router.get('/my-dormitory', jwtAuthen, getMyDormitory);
+// ดึงข้อมูลโปรไฟล์ล่าสุดที่เคยบันทึกไว้ (เพื่อนำมาเติมให้อัตโนมัติ)
+router.get('/latest-profile', jwtAuthen, getLatestProfile);
 // ส่งคำขอเข้าพักในหอพัก
 router.post('/join', jwtAuthen, joinDormitory);
 
@@ -32,5 +34,8 @@ router.get('/:id/list', jwtAuthen, requireOwner, getMyTenants);
 router.post('/:id/add', jwtAuthen, requireOwner, addTenant);
 router.put('/:id/update/:tenantId', jwtAuthen, requireOwner, updateTenant);
 router.delete('/:id/remove/:tenantId', jwtAuthen, requireOwner, removeTenant);
+
+// ดูรายละเอียดห้องพักและผู้เช่า (สำหรับเจ้าของหอ)
+router.get('/:id/rooms/:roomId/details', jwtAuthen, requireOwner, getRoomDetail);
 
 export default router;

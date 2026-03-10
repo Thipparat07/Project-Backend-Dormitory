@@ -154,7 +154,7 @@ export const googleCallback = (req, res) => {
             });
 
             return res.redirect(
-                `${process.env.FRONTEND_URL}/login-success` // URL ใหม่เมื่อล็อกอินผ่าน Google จะไม่ต้องมี token แนบไปแล้ว
+                `${process.env.FRONTEND_URL}/auth/success`
             );
         })();
         return;
@@ -164,7 +164,7 @@ export const googleCallback = (req, res) => {
 
     if (info?.message === 'email-exists') {
         return res.redirect(
-            `${process.env.FRONTEND_URL}/confirm-link?token=${info.token}`
+            (`${process.env.FRONTEND_URL}/auth/confirm?token=${info.token}`)
         );
     }
 
