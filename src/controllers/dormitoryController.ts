@@ -163,8 +163,8 @@ export const updateFurnitureFee = async (req, res) => {
         const dormitoryId = req.params.id;
         const { room_ids, furniture_fee } = req.body;
 
-        if (!user || !user.contexts || user.contexts[String(dormitoryId)] !== 'owner') {
-            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
+        if (!user) {
+            return res.status(401).json(ResponseTemplate.error(RES_MESSAGES.AUTH.INVALID_TOKEN));
         }
 
         if (!room_ids || !Array.isArray(room_ids) || room_ids.length === 0 || furniture_fee === undefined) {
@@ -173,7 +173,7 @@ export const updateFurnitureFee = async (req, res) => {
 
         // Verify dormitory ownership
         const [dormitories] = await conn.query<RowDataPacket[]>(
-            'SELECT * FROM dormitories WHERE id = ? AND owner_id = ?',
+            'SELECT id FROM dormitories WHERE id = ? AND owner_id = ?',
             [dormitoryId, user.id]
         );
 
