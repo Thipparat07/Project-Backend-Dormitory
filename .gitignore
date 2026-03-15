@@ -1,7 +1,16 @@
+# Environment variables
 .env
+
+# Database dump
 dormitory_system.sql
-/node_modules/
+
+# Node modules
+node_modules/
+
+# Upload files
 /uploads/
+
+# Test / debug files
 test_schema.ts
 debug_schema.ts
 test_context.js

@@ -267,3 +267,24 @@ export const assignRoomType = async (req, res) => {
         res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
     }
 };
+export const getDormitoryById = async (req, res) => {
+    try {
+        const user = req.auth;
+        const dormitoryId = req.params.id;
+
+        const [dormitories] = await conn.query<RowDataPacket[]>(
+            'SELECT * FROM dormitories WHERE id = ? AND owner_id = ?',
+            [dormitoryId, user.id]
+        );
+
+        if (dormitories.length === 0) {
+            return res.status(403).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.ACCESS_DENIED_OWNER));
+        }
+
+        res.status(200).json(ResponseTemplate.success(RES_MESSAGES.DORMITORY.GET_SUCCESS, dormitories[0]));
+
+    } catch (err) {
+        console.error('Get dormitory by id error:', err);
+        res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
+    }
+};

@@ -456,8 +456,13 @@ export const addTenant = async (req, res) => {
             return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.ROOM.ROOM_NOT_AVAILABLE));
         }
 
-        // Check if already tenant in this room
-        const [existing] = await conn.query<RowDataPacket[]>('SELECT id FROM tenants WHERE user_id = ? AND dormitory_id = ? AND room_id = ?', [userId, dormitoryId, room_id]);
+        // Check if already active tenant in this room (pending or approved)
+        const [existing] = await conn.query<RowDataPacket[]>(
+            `SELECT id FROM tenants 
+             WHERE user_id = ? AND dormitory_id = ? AND room_id = ? 
+             AND join_status IN ('pending', 'approved')`,
+            [userId, dormitoryId, room_id]
+        );
         if (existing.length > 0) {
             return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.TENANT.ALREADY_JOINED));
         }
@@ -679,6 +684,51 @@ export const getLatestProfile = async (req, res) => {
 
     } catch (err) {
         console.error('Get latest profile error:', err);
+        res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
+    }
+};
+
+// ค้นหาโปรไฟล์ผู้ใช้งานด้วยอีเมล (สำหรับเจ้าของหอพักนำมาเติมข้อมูลอัตโนมัติ)
+export const searchUser = async (req, res) => {
+    try {
+        const { email } = req.query;
+
+        if (!email) {
+            return res.status(400).json(ResponseTemplate.error(RES_MESSAGES.AUTH.MISSING_FIELDS));
+        }
+
+        // 1. ค้นหาข้อมูลเบื้องต้นจากตาราง users
+        const [users] = await conn.query<RowDataPacket[]>(
+            `SELECT id, full_name, phone, profile_picture FROM users WHERE email = ?`,
+            [email]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json(ResponseTemplate.error(RES_MESSAGES.AUTH.USER_NOT_FOUND));
+        }
+
+        const user = users[0];
+
+        // 2. ค้นหาประวัติโปรไฟล์ล่าสุดจากตาราง tenants
+        const [profiles] = await conn.query<RowDataPacket[]>(
+            `SELECT national_id, date_of_birth, nationality, address, id_card_image
+             FROM tenants
+             WHERE user_id = ? 
+             ORDER BY joined_at DESC LIMIT 1`,
+            [user.id]
+        );
+
+        const profileData = profiles.length > 0 ? profiles[0] : {};
+
+        const result = {
+            ...user,
+            ...profileData
+        };
+
+        res.status(200).json(ResponseTemplate.success(RES_MESSAGES.TENANT.GET_SUCCESS, result));
+
+    } catch (err) {
+        console.error('Search user by email error:', err);
         res.status(500).json(ResponseTemplate.error(RES_MESSAGES.DORMITORY.INTERNAL_ERROR));
     }
 };

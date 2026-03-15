@@ -1,6 +1,6 @@
 // Tenant-related Routes
 import express from 'express';
-import { joinDormitory, getJoinRequests, approveJoinRequest, getMyTenants, getDormitoryForJoin, getMyDormitory, addTenant, updateTenant, removeTenant, getTenantDormitories, getAvailableFloors, getAvailableRooms, getRoomDetail, getLatestProfile } from '../controllers/tenantController';
+import { joinDormitory, getJoinRequests, approveJoinRequest, getMyTenants, getDormitoryForJoin, getMyDormitory, addTenant, updateTenant, removeTenant, getTenantDormitories, getAvailableFloors, getAvailableRooms, getRoomDetail, getLatestProfile, searchUser } from '../controllers/tenantController';
 import { jwtAuthen } from '../utils/jwtauth';
 import { requireOwner } from '../middleware/requireOwner';
 
@@ -31,6 +31,7 @@ router.put('/:id/join-requests/:tenantId/approve', jwtAuthen, requireOwner, appr
 router.get('/:id/list', jwtAuthen, requireOwner, getMyTenants);
 
 // จัดการข้อมูลผู้เช่าโดยตรง (Manual Add, Edit, Remove)
+router.get('/search-user', jwtAuthen, requireOwner, searchUser);
 router.post('/:id/add', jwtAuthen, requireOwner, addTenant);
 router.put('/:id/update/:tenantId', jwtAuthen, requireOwner, updateTenant);
 router.delete('/:id/remove/:tenantId', jwtAuthen, requireOwner, removeTenant);
