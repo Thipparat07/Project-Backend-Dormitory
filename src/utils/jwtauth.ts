@@ -3,6 +3,7 @@ import { expressjwt } from 'express-jwt';
 import { Request } from 'express';
 import { UserRole, JWTPayload, GoogleTempPayload } from '../models/auth';
 import { Response, NextFunction } from 'express';
+import { getCookieOptions } from '../constants/cookieConfig';
 export { UserRole, JWTPayload, GoogleTempPayload };
 
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -84,10 +85,7 @@ export function refreshTokenIfNeeded(
 
     const newToken = generateToken(newPayload);
 
-    res.cookie("token", newToken, {
-      httpOnly: true,
-      sameSite: "lax"
-    });
+    res.cookie("token", newToken, getCookieOptions());
   }
 
   next();

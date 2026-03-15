@@ -8,6 +8,7 @@ import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import passport from 'passport';
 
 import { ContextRoles } from '../models/auth';
+import { getCookieOptions } from '../constants/cookieConfig';
 
 interface UserRow {
     id: number;
@@ -113,12 +114,7 @@ export const login = async (req, res) => {
             contexts: contexts,
         });
 
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: 24 * 60 * 60 * 1000 // 1 day
-        });
+        res.cookie('token', token, getCookieOptions());
 
         res.json(ResponseTemplate.success(RES_MESSAGES.AUTH.LOGIN_SUCCESS, {
             user: {
@@ -146,12 +142,7 @@ export const googleCallback = (req, res) => {
                 contexts: contexts,
             });
 
-            res.cookie('token', accessToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-                maxAge: 24 * 60 * 60 * 1000 // 1 day
-            });
+            res.cookie('token', accessToken, getCookieOptions());
 
             return res.redirect(
                 `${process.env.FRONTEND_URL}/auth/success`
@@ -235,12 +226,7 @@ export const googleLinkConfirm = async (req, res) => {
             contexts: contexts,
         });
 
-        res.cookie('token', accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: 24 * 60 * 60 * 1000 // 1 day
-        });
+        res.cookie('token', accessToken, getCookieOptions());
 
         res.json(
             ResponseTemplate.success(
@@ -262,11 +248,7 @@ export const googleLinkConfirm = async (req, res) => {
 };
 
 export const logout = (req, res) => {
-    res.clearCookie('token', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    });
+    res.clearCookie('token', getCookieOptions());
     res.json(ResponseTemplate.success({ th: 'ออกจากระบบสำเร็จ', en: 'Logout successful' }));
 };
 
